@@ -2,8 +2,12 @@
 export const checkGrammar = (text: string) => {
   const suggestions = [];
   
-  // Common grammatical error patterns
+  // Enhanced grammatical error patterns
   const grammarChecks = [
+    // Plural/singular issues (like "spellings" vs "spelling")
+    { pattern: /\bcheck spellings\b/gi, correct: 'check spelling', explanation: 'Use singular "spelling" after "check"' },
+    { pattern: /\bis spellings\b/gi, correct: 'is spelling', explanation: 'Use singular "spelling" with "is"' },
+    
     // Subject-verb agreement
     { pattern: /\b(I|you|we|they) was\b/gi, correct: 'were', explanation: 'Subject-verb agreement: use "were" with plural subjects' },
     { pattern: /\b(he|she|it) were\b/gi, correct: 'was', explanation: 'Subject-verb agreement: use "was" with singular subjects' },
