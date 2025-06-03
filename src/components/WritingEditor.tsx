@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+
+import React, { useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,10 @@ import { CheckCircle, Wand2, Zap } from 'lucide-react';
 export const WritingEditor = () => {
   const [text, setText] = useState('');
   const [selectedText, setSelectedText] = useState('');
+  const [selectionStart, setSelectionStart] = useState(0);
+  const [selectionEnd, setSelectionEnd] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const { 
     processText: processLocal, 
@@ -29,6 +33,8 @@ export const WritingEditor = () => {
     const target = e.target as HTMLTextAreaElement;
     const selected = target.value.substring(target.selectionStart, target.selectionEnd);
     setSelectedText(selected);
+    setSelectionStart(target.selectionStart);
+    setSelectionEnd(target.selectionEnd);
   };
 
   const analyzeText = useCallback(async () => {
@@ -55,14 +61,30 @@ export const WritingEditor = () => {
   }, [selectedText, processLocal, processLLM, hasApiKey]);
 
   const applySuggestion = (suggestion: any) => {
-    const currentText = selectedText || text;
-    const correctedText = applyLocalSuggestion(currentText, suggestion);
-    
-    if (selectedText) {
-      setText(text.replace(selectedText, correctedText));
-      setSelectedText('');
+    if (selectedText && selectionStart !== selectionEnd) {
+      // Apply suggestion to selected text using position-based replacement
+      const correctedText = applyLocalSuggestion(selectedText, suggestion);
+      const newText = text.substring(0, selectionStart) + correctedText + text.substring(selectionEnd);
+      setText(newText);
+      
+      // Update selection to highlight the changed text
+      const newSelectionEnd = selectionStart + correctedText.length;
+      setSelectionStart(selectionStart);
+      setSelectionEnd(newSelectionEnd);
+      setSelectedText(correctedText);
+      
+      // Focus and update selection in textarea
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(selectionStart, newSelectionEnd);
+        }
+      }, 0);
     } else {
+      // Apply suggestion to full text
+      const correctedText = applyLocalSuggestion(text, suggestion);
       setText(correctedText);
+      setSelectedText('');
     }
   };
 
@@ -93,6 +115,7 @@ export const WritingEditor = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
+            ref={textareaRef}
             value={text}
             onChange={handleTextChange}
             onSelect={handleTextSelect}
