@@ -1,6 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { useSuggestions } from './useSuggestions';
 import { toast } from '@/hooks/use-toast';
+import { checkGrammar } from '@/utils/grammarChecker';
+import { checkSpelling } from '@/utils/spellChecker';
 
 let spellChecker: any = null;
 
@@ -36,229 +39,6 @@ export const useLocalProcessor = () => {
     loadSpellChecker();
   }, []);
 
-  const analyzeContext = (text: string, word: string, wordIndex: number) => {
-    const words = text.split(/\s+/);
-    const wordPosition = text.substring(0, wordIndex).split(/\s+/).length - 1;
-    
-    // Get surrounding words for context
-    const prevWord = wordPosition > 0 ? words[wordPosition - 1]?.toLowerCase() : '';
-    const nextWord = wordPosition < words.length - 1 ? words[wordPosition + 1]?.toLowerCase() : '';
-    const prevTwoWords = wordPosition > 1 ? words[wordPosition - 2]?.toLowerCase() : '';
-    
-    // Context analysis for "thos"
-    if (word.toLowerCase() === 'thos') {
-      // Patterns that suggest "this"
-      const thisPatterns = [
-        /\b(in|on|at|with|for|by|from|like)\b/i,
-        /\b(is|was|will|can|could|should|would)\b/i,
-        /\b(way|time|moment|case|situation)\b/i
-      ];
-      
-      // Patterns that suggest "those"
-      const thosePatterns = [
-        /\b(are|were|have|had)\b/i,
-        /\b(people|things|items|books|documents)\b/i,
-        /\b(all|some|many|few)\b/i
-      ];
-      
-      // Check context around the word
-      const contextText = `${prevTwoWords} ${prevWord} ${nextWord}`.toLowerCase();
-      
-      // If next word is singular or context suggests singular, prefer "this"
-      if (thisPatterns.some(pattern => pattern.test(contextText)) || 
-          nextWord.match(/\b(is|was|will|can|could|should|would|way|time|moment|case|situation)\b/)) {
-        return 'this';
-      }
-      
-      // If context suggests plural or multiple items, prefer "those"
-      if (thosePatterns.some(pattern => pattern.test(contextText)) || 
-          nextWord.match(/\b(are|were|have|had|people|things|items|books|documents)\b/)) {
-        return 'those';
-      }
-      
-      // Default to "this" for ambiguous cases
-      return 'this';
-    }
-    
-    return null;
-  };
-
-  const checkGrammar = (text: string) => {
-    const suggestions = [];
-    
-    // Common grammatical error patterns
-    const grammarChecks = [
-      // Subject-verb agreement
-      { pattern: /\b(I|you|we|they) was\b/gi, correct: 'were', explanation: 'Subject-verb agreement: use "were" with plural subjects' },
-      { pattern: /\b(he|she|it) were\b/gi, correct: 'was', explanation: 'Subject-verb agreement: use "was" with singular subjects' },
-      
-      // Incorrect verb forms
-      { pattern: /\bshould of\b/gi, correct: 'should have', explanation: 'Use "should have" instead of "should of"' },
-      { pattern: /\bcould of\b/gi, correct: 'could have', explanation: 'Use "could have" instead of "could of"' },
-      { pattern: /\bwould of\b/gi, correct: 'would have', explanation: 'Use "would have" instead of "would of"' },
-      
-      // Common pronoun errors
-      { pattern: /\bme and \w+\b/gi, correct: (match) => match.replace('me and', 'X and I'), explanation: 'Use "X and I" instead of "me and X" as subject' },
-      
-      // Incorrect comparisons
-      { pattern: /\bmore better\b/gi, correct: 'better', explanation: 'Use "better" instead of "more better"' },
-      { pattern: /\bmore easier\b/gi, correct: 'easier', explanation: 'Use "easier" instead of "more easier"' },
-      { pattern: /\bmost easiest\b/gi, correct: 'easiest', explanation: 'Use "easiest" instead of "most easiest"' },
-      
-      // Double negatives
-      { pattern: /\bdon't have no\b/gi, correct: "don't have any", explanation: 'Avoid double negatives' },
-      { pattern: /\bcan't get no\b/gi, correct: "can't get any", explanation: 'Avoid double negatives' },
-      
-      // Incorrect prepositions
-      { pattern: /\bdifferent than\b/gi, correct: 'different from', explanation: 'Use "different from" instead of "different than"' },
-      
-      // Common word confusions
-      { pattern: /\bthen\b(?=\s+(he|she|it|they|we|I))/gi, correct: 'than', explanation: 'Use "than" for comparisons' },
-      { pattern: /\byour\s+(going|coming|being|doing)\b/gi, correct: (match) => match.replace('your', "you're"), explanation: 'Use "you\'re" (you are) instead of "your"' },
-      { pattern: /\bits\s+(going|being|doing|coming)\b/gi, correct: (match) => match.replace('its', "it's"), explanation: 'Use "it\'s" (it is) instead of "its"' },
-      
-      // Missing articles
-      { pattern: /\bin\s+(beginning|end|middle)\b/gi, correct: (match) => match.replace('in ', 'in the '), explanation: 'Add article "the"' },
-      
-      // Redundant phrases
-      { pattern: /\bfree gift\b/gi, correct: 'gift', explanation: 'Remove redundant word - gifts are inherently free' },
-      { pattern: /\badvance planning\b/gi, correct: 'planning', explanation: 'Remove redundant word - planning is inherently done in advance' },
-    ];
-    
-    grammarChecks.forEach(({ pattern, correct, explanation }) => {
-      const matches = text.matchAll(pattern);
-      for (const match of matches) {
-        const wordIndex = match.index || 0;
-        const contextStart = Math.max(0, wordIndex - 20);
-        const contextEnd = Math.min(text.length, wordIndex + match[0].length + 20);
-        const context = text.substring(contextStart, contextEnd);
-        
-        let correctedText;
-        if (typeof correct === 'function') {
-          correctedText = text.replace(pattern, correct);
-        } else {
-          correctedText = text.replace(pattern, correct);
-        }
-        
-        suggestions.push({
-          type: 'Grammar',
-          text: correctedText,
-          explanation: explanation,
-          originalWord: match[0],
-          suggestion: typeof correct === 'function' ? correct(match[0]) : correct,
-          context: context.replace(new RegExp(match[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), `**${match[0]}**`)
-        });
-      }
-    });
-    
-    return suggestions;
-  };
-
-  const checkSpelling = (text: string) => {
-    const suggestions = [];
-    
-    // Enhanced fallback spell checking with context analysis
-    const fallbackChecks = [
-      { pattern: /\bteh\b/gi, correct: 'the', word: 'teh' },
-      { pattern: /\bspelligsn\b/gi, correct: 'spellings', word: 'spelligsn' },
-      { pattern: /\brecieve\b/gi, correct: 'receive', word: 'recieve' },
-      { pattern: /\baccommodate\b/gi, correct: 'accommodate', word: 'accomodate' },
-      { pattern: /\bseparate\b/gi, correct: 'separate', word: 'seperate' },
-      { pattern: /\bstatnmnbt\b/gi, correct: 'statement', word: 'statnmnbt' },
-      { pattern: /\bdefinately\b/gi, correct: 'definitely', word: 'definately' },
-      { pattern: /\bneccessary\b/gi, correct: 'necessary', word: 'neccessary' },
-      { pattern: /\boccurred\b/gi, correct: 'occurred', word: 'occured' },
-      { pattern: /\bbeginning\b/gi, correct: 'beginning', word: 'begining' },
-      { pattern: /\bwhich\b/gi, correct: 'which', word: 'wich' },
-      { pattern: /\bwhere\b/gi, correct: 'where', word: 'were' },
-      { pattern: /\bthere\b/gi, correct: 'there', word: 'ther' }
-    ];
-    
-    // Handle "thos" with context analysis
-    const thosMatches = text.matchAll(/\bthos\b/gi);
-    for (const match of thosMatches) {
-      const wordIndex = match.index || 0;
-      const contextCorrection = analyzeContext(text, 'thos', wordIndex);
-      
-      if (contextCorrection) {
-        const contextStart = Math.max(0, wordIndex - 20);
-        const contextEnd = Math.min(text.length, wordIndex + 4 + 20);
-        const context = text.substring(contextStart, contextEnd);
-        
-        suggestions.push({
-          type: 'Spelling',
-          text: text.replace(/\bthos\b/gi, contextCorrection),
-          explanation: `Replace "thos" with "${contextCorrection}" (context-aware)`,
-          originalWord: 'thos',
-          suggestion: contextCorrection,
-          context: context.replace(/\bthos\b/gi, '**thos**')
-        });
-      }
-    }
-    
-    // Check other fallback patterns
-    fallbackChecks.forEach(({ pattern, correct, word }) => {
-      if (pattern.test(text)) {
-        const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
-        if (wordIndex !== -1) {
-          const contextStart = Math.max(0, wordIndex - 20);
-          const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
-          const context = text.substring(contextStart, contextEnd);
-          
-          suggestions.push({
-            type: 'Spelling',
-            text: text.replace(pattern, correct),
-            explanation: `Replace "${word}" with "${correct}"`,
-            originalWord: word,
-            suggestion: correct,
-            context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
-          });
-        }
-      }
-    });
-    
-    if (isSpellCheckerReady && spellChecker) {
-      // More aggressive word matching to catch badly misspelled words
-      const words = text.match(/\b[a-zA-Z]+\b/g) || [];
-      const misspelledWords = new Set();
-      
-      for (const word of words) {
-        if (!spellChecker.correct(word) && word.length > 1 && !misspelledWords.has(word.toLowerCase())) {
-          // Skip if already found in fallback checks
-          const alreadyFound = fallbackChecks.some(({ word: fallbackWord }) => 
-            word.toLowerCase() === fallbackWord.toLowerCase()
-          );
-          
-          if (!alreadyFound) {
-            misspelledWords.add(word.toLowerCase());
-            
-            const spellSuggestions = spellChecker.suggest(word);
-            if (spellSuggestions.length > 0) {
-              const bestSuggestion = spellSuggestions[0];
-              
-              // Find the context around the misspelled word
-              const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
-              const contextStart = Math.max(0, wordIndex - 20);
-              const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
-              const context = text.substring(contextStart, contextEnd);
-              
-              suggestions.push({
-                type: 'Spelling',
-                text: text.replace(new RegExp(`\\b${word}\\b`, 'gi'), bestSuggestion),
-                explanation: `Replace "${word}" with "${bestSuggestion}"`,
-                originalWord: word,
-                suggestion: bestSuggestion,
-                context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
-              });
-            }
-          }
-        }
-      }
-    }
-    
-    return suggestions;
-  };
-
   const processText = async (text: string) => {
     setIsProcessing(true);
     
@@ -272,7 +52,7 @@ export const useLocalProcessor = () => {
       suggestions.push(...grammarSuggestions);
       
       // Spell checking
-      const spellingSuggestions = checkSpelling(text);
+      const spellingSuggestions = checkSpelling(text, spellChecker, isSpellCheckerReady);
       suggestions.push(...spellingSuggestions);
       
       // Multiple spaces
