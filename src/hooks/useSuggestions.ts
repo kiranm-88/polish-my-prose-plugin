@@ -5,6 +5,9 @@ interface Suggestion {
   type: string;
   text: string;
   explanation: string;
+  context?: string;
+  originalWord?: string;
+  suggestion?: string;
 }
 
 interface SuggestionsStore {
