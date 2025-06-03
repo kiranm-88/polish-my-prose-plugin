@@ -1,7 +1,5 @@
-
 import { useState, useEffect } from 'react';
 import { useSuggestions } from './useSuggestions';
-import nspell from 'nspell';
 
 let spellChecker: any = null;
 
@@ -13,6 +11,9 @@ export const useLocalProcessor = () => {
   useEffect(() => {
     const loadSpellChecker = async () => {
       try {
+        // Dynamically import nspell to avoid build issues
+        const { default: nspell } = await import('nspell');
+        
         // Load dictionary files
         const [affResponse, dicResponse] = await Promise.all([
           fetch('https://cdn.jsdelivr.net/npm/dictionary-en@3.2.0/index.aff'),
