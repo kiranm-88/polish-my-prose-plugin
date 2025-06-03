@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSuggestions } from './useSuggestions';
 import { toast } from '@/hooks/use-toast';
@@ -40,6 +39,45 @@ export const useLocalProcessor = () => {
   const checkSpelling = (text: string) => {
     const suggestions = [];
     
+    // Enhanced fallback spell checking with more common misspellings
+    const fallbackChecks = [
+      { pattern: /\bteh\b/gi, correct: 'the', word: 'teh' },
+      { pattern: /\bthos\b/gi, correct: 'those', word: 'thos' },
+      { pattern: /\bspelligsn\b/gi, correct: 'spellings', word: 'spelligsn' },
+      { pattern: /\brecieve\b/gi, correct: 'receive', word: 'recieve' },
+      { pattern: /\baccommodate\b/gi, correct: 'accommodate', word: 'accomodate' },
+      { pattern: /\bseparate\b/gi, correct: 'separate', word: 'seperate' },
+      { pattern: /\bstatnmnbt\b/gi, correct: 'statement', word: 'statnmnbt' },
+      { pattern: /\bdefinately\b/gi, correct: 'definitely', word: 'definately' },
+      { pattern: /\bneccessary\b/gi, correct: 'necessary', word: 'neccessary' },
+      { pattern: /\boccurred\b/gi, correct: 'occurred', word: 'occured' },
+      { pattern: /\bbeginning\b/gi, correct: 'beginning', word: 'begining' },
+      { pattern: /\bwhich\b/gi, correct: 'which', word: 'wich' },
+      { pattern: /\bwhere\b/gi, correct: 'where', word: 'were' },
+      { pattern: /\bthere\b/gi, correct: 'there', word: 'ther' }
+    ];
+    
+    // Always check fallback patterns first
+    fallbackChecks.forEach(({ pattern, correct, word }) => {
+      if (pattern.test(text)) {
+        const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
+        if (wordIndex !== -1) {
+          const contextStart = Math.max(0, wordIndex - 20);
+          const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
+          const context = text.substring(contextStart, contextEnd);
+          
+          suggestions.push({
+            type: 'Spelling',
+            text: text.replace(pattern, correct),
+            explanation: `Replace "${word}" with "${correct}"`,
+            originalWord: word,
+            suggestion: correct,
+            context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
+          });
+        }
+      }
+    });
+    
     if (isSpellCheckerReady && spellChecker) {
       // More aggressive word matching to catch badly misspelled words
       const words = text.match(/\b[a-zA-Z]+\b/g) || [];
@@ -47,61 +85,36 @@ export const useLocalProcessor = () => {
       
       for (const word of words) {
         if (!spellChecker.correct(word) && word.length > 1 && !misspelledWords.has(word.toLowerCase())) {
-          misspelledWords.add(word.toLowerCase());
+          // Skip if already found in fallback checks
+          const alreadyFound = fallbackChecks.some(({ word: fallbackWord }) => 
+            word.toLowerCase() === fallbackWord.toLowerCase()
+          );
           
-          const spellSuggestions = spellChecker.suggest(word);
-          if (spellSuggestions.length > 0) {
-            const bestSuggestion = spellSuggestions[0];
+          if (!alreadyFound) {
+            misspelledWords.add(word.toLowerCase());
             
-            // Find the context around the misspelled word
-            const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
-            const contextStart = Math.max(0, wordIndex - 20);
-            const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
-            const context = text.substring(contextStart, contextEnd);
-            
-            suggestions.push({
-              type: 'Spelling',
-              text: text.replace(new RegExp(`\\b${word}\\b`, 'gi'), bestSuggestion),
-              explanation: `Replace "${word}" with "${bestSuggestion}"`,
-              originalWord: word,
-              suggestion: bestSuggestion,
-              context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
-            });
+            const spellSuggestions = spellChecker.suggest(word);
+            if (spellSuggestions.length > 0) {
+              const bestSuggestion = spellSuggestions[0];
+              
+              // Find the context around the misspelled word
+              const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
+              const contextStart = Math.max(0, wordIndex - 20);
+              const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
+              const context = text.substring(contextStart, contextEnd);
+              
+              suggestions.push({
+                type: 'Spelling',
+                text: text.replace(new RegExp(`\\b${word}\\b`, 'gi'), bestSuggestion),
+                explanation: `Replace "${word}" with "${bestSuggestion}"`,
+                originalWord: word,
+                suggestion: bestSuggestion,
+                context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
+              });
+            }
           }
         }
       }
-    } else {
-      // Enhanced fallback spell checking with more common misspellings
-      const fallbackChecks = [
-        { pattern: /\bteh\b/gi, correct: 'the', word: 'teh' },
-        { pattern: /\brecieve\b/gi, correct: 'receive', word: 'recieve' },
-        { pattern: /\baccommodate\b/gi, correct: 'accommodate', word: 'accomodate' },
-        { pattern: /\bseparate\b/gi, correct: 'separate', word: 'seperate' },
-        { pattern: /\bstatnmnbt\b/gi, correct: 'statement', word: 'statnmnbt' },
-        { pattern: /\bdefinately\b/gi, correct: 'definitely', word: 'definately' },
-        { pattern: /\bneccessary\b/gi, correct: 'necessary', word: 'neccessary' },
-        { pattern: /\boccurred\b/gi, correct: 'occurred', word: 'occured' }
-      ];
-      
-      fallbackChecks.forEach(({ pattern, correct, word }) => {
-        if (pattern.test(text)) {
-          const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
-          if (wordIndex !== -1) {
-            const contextStart = Math.max(0, wordIndex - 20);
-            const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
-            const context = text.substring(contextStart, contextEnd);
-            
-            suggestions.push({
-              type: 'Spelling',
-              text: text.replace(pattern, correct),
-              explanation: `Replace "${word}" with "${correct}"`,
-              originalWord: word,
-              suggestion: correct,
-              context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
-            });
-          }
-        }
-      });
     }
     
     return suggestions;
@@ -111,7 +124,7 @@ export const useLocalProcessor = () => {
     setIsProcessing(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 200)); // Reduced delay for better UX
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const suggestions = [];
       
