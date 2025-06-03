@@ -1,25 +1,72 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSuggestions } from './useSuggestions';
+import nspell from 'nspell';
+
+let spellChecker: any = null;
 
 export const useLocalProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSpellCheckerReady, setIsSpellCheckerReady] = useState(false);
   const { setLocalSuggestions } = useSuggestions();
 
-  const processText = async (text: string) => {
-    setIsProcessing(true);
+  useEffect(() => {
+    const loadSpellChecker = async () => {
+      try {
+        // Load dictionary files
+        const [affResponse, dicResponse] = await Promise.all([
+          fetch('https://cdn.jsdelivr.net/npm/dictionary-en@3.2.0/index.aff'),
+          fetch('https://cdn.jsdelivr.net/npm/dictionary-en@3.2.0/index.dic')
+        ]);
+        
+        const aff = await affResponse.text();
+        const dic = await dicResponse.text();
+        
+        spellChecker = nspell(aff, dic);
+        setIsSpellCheckerReady(true);
+        console.log('Spell checker loaded successfully');
+      } catch (error) {
+        console.error('Failed to load spell checker:', error);
+        // Fallback to basic spell checking if loading fails
+        setIsSpellCheckerReady(false);
+      }
+    };
+
+    loadSpellChecker();
+  }, []);
+
+  const checkSpelling = (text: string) => {
+    const suggestions = [];
     
-    try {
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 500));
+    if (isSpellCheckerReady && spellChecker) {
+      // Split text into words and check each one
+      const words = text.match(/\b[a-zA-Z]+\b/g) || [];
+      const misspelledWords = new Set();
       
-      const suggestions = [];
-      
-      // Basic grammar and spelling checks
+      for (const word of words) {
+        if (!spellChecker.correct(word) && word.length > 2 && !misspelledWords.has(word.toLowerCase())) {
+          misspelledWords.add(word.toLowerCase());
+          
+          // Get suggestions for the misspelled word
+          const spellSuggestions = spellChecker.suggest(word);
+          if (spellSuggestions.length > 0) {
+            const bestSuggestion = spellSuggestions[0];
+            const correctedText = text.replace(new RegExp(`\\b${word}\\b`, 'gi'), bestSuggestion);
+            
+            suggestions.push({
+              type: 'Spelling',
+              text: correctedText,
+              explanation: `Corrected "${word}" to "${bestSuggestion}"`
+            });
+          }
+        }
+      }
+    } else {
+      // Fallback to basic spell checking
       if (text.includes('teh ')) {
         suggestions.push({
           type: 'Spelling',
-          text: text.replace(/teh /g, 'the '),
+          text: text.replace(/\bteh\b/g, 'the'),
           explanation: 'Corrected "teh" to "the"'
         });
       }
@@ -31,6 +78,23 @@ export const useLocalProcessor = () => {
           explanation: 'Corrected "recieve" to "receive"'
         });
       }
+    }
+    
+    return suggestions;
+  };
+
+  const processText = async (text: string) => {
+    setIsProcessing(true);
+    
+    try {
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const suggestions = [];
+      
+      // Spell checking
+      const spellingSuggestions = checkSpelling(text);
+      suggestions.push(...spellingSuggestions);
       
       // Multiple spaces
       if (text.includes('  ')) {
@@ -68,5 +132,5 @@ export const useLocalProcessor = () => {
     }
   };
 
-  return { processText, isProcessing };
+  return { processText, isProcessing, isSpellCheckerReady };
 };

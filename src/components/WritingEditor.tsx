@@ -14,7 +14,7 @@ export const WritingEditor = () => {
   const [selectedText, setSelectedText] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   
-  const { processText: processLocal, isProcessing: isLocalProcessing } = useLocalProcessor();
+  const { processText: processLocal, isProcessing: isLocalProcessing, isSpellCheckerReady } = useLocalProcessor();
   const { processText: processLLM, isProcessing: isLLMProcessing, hasApiKey } = useLLMProcessor();
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -69,6 +69,11 @@ export const WritingEditor = () => {
               <Badge variant="outline" className="gap-1">
                 <Zap className="h-3 w-3 text-blue-500" />
                 Local Processing
+                {isSpellCheckerReady ? (
+                  <span className="text-green-600">✓</span>
+                ) : (
+                  <span className="text-yellow-600">⚠</span>
+                )}
               </Badge>
               {hasApiKey && (
                 <Badge variant="outline" className="gap-1">
@@ -115,6 +120,14 @@ export const WritingEditor = () => {
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-800">
                 💡 Add your API key in Settings to unlock advanced AI-powered suggestions
+              </p>
+            </div>
+          )}
+
+          {!isSpellCheckerReady && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                📚 Loading spell checker dictionary... Some spelling features may be limited.
               </p>
             </div>
           )}
