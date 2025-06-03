@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { SuggestionsList } from './SuggestionsList';
 import { useLocalProcessor } from '@/hooks/useLocalProcessor';
 import { useLLMProcessor } from '@/hooks/useLLMProcessor';
+import { useSuggestions } from '@/hooks/useSuggestions';
 import { CheckCircle, Wand2, Zap } from 'lucide-react';
 
 export const WritingEditor = () => {
@@ -24,18 +25,32 @@ export const WritingEditor = () => {
     applySuggestion: applyLocalSuggestion
   } = useLocalProcessor();
   const { processText: processLLM, isProcessing: isLLMProcessing, hasApiKey } = useLLMProcessor();
+  const { clearSuggestions } = useSuggestions();
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
   };
 
-  const handleTextSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+  const handleTextSelect = useCallback(async (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
     const selected = target.value.substring(target.selectionStart, target.selectionEnd);
     setSelectedText(selected);
     setSelectionStart(target.selectionStart);
     setSelectionEnd(target.selectionEnd);
-  };
+    
+    // Auto-analyze selection if text is selected and longer than 2 characters
+    if (selected.trim().length > 2) {
+      setShowSuggestions(true);
+      await processLocal(selected);
+      if (hasApiKey) {
+        await processLLM(selected);
+      }
+    } else {
+      // Clear suggestions if no meaningful selection
+      clearSuggestions();
+      setShowSuggestions(false);
+    }
+  }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
 
   const analyzeText = useCallback(async () => {
     if (!text.trim()) return;
@@ -49,16 +64,6 @@ export const WritingEditor = () => {
       await processLLM(text);
     }
   }, [text, processLocal, processLLM, hasApiKey]);
-
-  const analyzeSelection = useCallback(async () => {
-    if (!selectedText.trim()) return;
-    setShowSuggestions(true);
-    
-    await processLocal(selectedText);
-    if (hasApiKey) {
-      await processLLM(selectedText);
-    }
-  }, [selectedText, processLocal, processLLM, hasApiKey]);
 
   const applySuggestion = (suggestion: any) => {
     if (selectedText && selectionStart !== selectionEnd) {
@@ -86,10 +91,14 @@ export const WritingEditor = () => {
       setText(correctedText);
       setSelectedText('');
     }
+    
+    // Clear suggestions after applying
+    clearSuggestions();
+    setShowSuggestions(false);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -123,6 +132,12 @@ export const WritingEditor = () => {
             className="min-h-[300px] text-lg leading-relaxed"
           />
           
+          {selectedText && (
+            <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
+              💡 Selected: "{selectedText}" - Suggestions will appear below automatically
+            </div>
+          )}
+          
           <div className="flex gap-3">
             <Button 
               onClick={analyzeText}
@@ -132,18 +147,6 @@ export const WritingEditor = () => {
               <CheckCircle className="h-4 w-4" />
               Analyze Full Text
             </Button>
-            
-            {selectedText && (
-              <Button 
-                variant="outline"
-                onClick={analyzeSelection}
-                disabled={isLocalProcessing || isLLMProcessing}
-                className="gap-2"
-              >
-                <Wand2 className="h-4 w-4" />
-                Improve Selection
-              </Button>
-            )}
           </div>
 
           {!hasApiKey && (

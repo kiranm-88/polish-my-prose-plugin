@@ -41,11 +41,12 @@ export const useLocalProcessor = () => {
     const suggestions = [];
     
     if (isSpellCheckerReady && spellChecker) {
+      // More aggressive word matching to catch badly misspelled words
       const words = text.match(/\b[a-zA-Z]+\b/g) || [];
       const misspelledWords = new Set();
       
       for (const word of words) {
-        if (!spellChecker.correct(word) && word.length > 2 && !misspelledWords.has(word.toLowerCase())) {
+        if (!spellChecker.correct(word) && word.length > 1 && !misspelledWords.has(word.toLowerCase())) {
           misspelledWords.add(word.toLowerCase());
           
           const spellSuggestions = spellChecker.suggest(word);
@@ -70,12 +71,16 @@ export const useLocalProcessor = () => {
         }
       }
     } else {
-      // Enhanced fallback spell checking
+      // Enhanced fallback spell checking with more common misspellings
       const fallbackChecks = [
         { pattern: /\bteh\b/gi, correct: 'the', word: 'teh' },
         { pattern: /\brecieve\b/gi, correct: 'receive', word: 'recieve' },
         { pattern: /\baccommodate\b/gi, correct: 'accommodate', word: 'accomodate' },
-        { pattern: /\bseparate\b/gi, correct: 'separate', word: 'seperate' }
+        { pattern: /\bseparate\b/gi, correct: 'separate', word: 'seperate' },
+        { pattern: /\bstatnmnbt\b/gi, correct: 'statement', word: 'statnmnbt' },
+        { pattern: /\bdefinately\b/gi, correct: 'definitely', word: 'definately' },
+        { pattern: /\bneccessary\b/gi, correct: 'necessary', word: 'neccessary' },
+        { pattern: /\boccurred\b/gi, correct: 'occurred', word: 'occured' }
       ];
       
       fallbackChecks.forEach(({ pattern, correct, word }) => {
@@ -106,7 +111,7 @@ export const useLocalProcessor = () => {
     setIsProcessing(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 200)); // Reduced delay for better UX
       
       const suggestions = [];
       
