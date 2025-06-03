@@ -7,7 +7,7 @@ import { useSuggestions } from '@/hooks/useSuggestions';
 import { Zap, Wand2, CheckCircle } from 'lucide-react';
 
 interface SuggestionsListProps {
-  onApplySuggestion: (suggestion: string) => void;
+  onApplySuggestion: (suggestion: any) => void;
 }
 
 export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggestion }) => {
@@ -42,15 +42,38 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
               <div key={index} className="border rounded-lg p-4 bg-blue-50">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <p className="font-medium text-sm text-blue-800 mb-1">{suggestion.type}</p>
-                    <p className="text-gray-700 mb-2">{suggestion.text}</p>
-                    {suggestion.explanation && (
-                      <p className="text-sm text-gray-600">{suggestion.explanation}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline" className="text-xs">{suggestion.type}</Badge>
+                      <p className="font-medium text-sm text-blue-800">{suggestion.explanation}</p>
+                    </div>
+                    
+                    {suggestion.context && (
+                      <div className="mb-2">
+                        <p className="text-xs text-gray-600 mb-1">Context:</p>
+                        <p className="text-sm text-gray-700 bg-white p-2 rounded border font-mono">
+                          {suggestion.context}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {suggestion.originalWord && suggestion.suggestion && (
+                      <div className="mb-2">
+                        <p className="text-xs text-gray-600 mb-1">Change:</p>
+                        <p className="text-sm">
+                          <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
+                            {suggestion.originalWord}
+                          </span>
+                          <span className="mx-2">→</span>
+                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                            {suggestion.suggestion}
+                          </span>
+                        </p>
+                      </div>
                     )}
                   </div>
                   <Button 
                     size="sm" 
-                    onClick={() => onApplySuggestion(suggestion.text)}
+                    onClick={() => onApplySuggestion(suggestion)}
                     className="ml-3"
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />
@@ -85,7 +108,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
                   </div>
                   <Button 
                     size="sm" 
-                    onClick={() => onApplySuggestion(suggestion.text)}
+                    onClick={() => onApplySuggestion(suggestion)}
                     className="ml-3"
                   >
                     <CheckCircle className="h-4 w-4 mr-1" />

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +13,12 @@ export const WritingEditor = () => {
   const [selectedText, setSelectedText] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   
-  const { processText: processLocal, isProcessing: isLocalProcessing, isSpellCheckerReady } = useLocalProcessor();
+  const { 
+    processText: processLocal, 
+    isProcessing: isLocalProcessing, 
+    isSpellCheckerReady,
+    applySuggestion: applyLocalSuggestion
+  } = useLocalProcessor();
   const { processText: processLLM, isProcessing: isLLMProcessing, hasApiKey } = useLLMProcessor();
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -50,12 +54,15 @@ export const WritingEditor = () => {
     }
   }, [selectedText, processLocal, processLLM, hasApiKey]);
 
-  const applySuggestion = (suggestion: string) => {
+  const applySuggestion = (suggestion: any) => {
+    const currentText = selectedText || text;
+    const correctedText = applyLocalSuggestion(currentText, suggestion);
+    
     if (selectedText) {
-      setText(text.replace(selectedText, suggestion));
+      setText(text.replace(selectedText, correctedText));
       setSelectedText('');
     } else {
-      setText(suggestion);
+      setText(correctedText);
     }
   };
 

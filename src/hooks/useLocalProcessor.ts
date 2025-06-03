@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { useSuggestions } from './useSuggestions';
+import { toast } from '@/hooks/use-toast';
 
 let spellChecker: any = null;
 
@@ -28,7 +30,6 @@ export const useLocalProcessor = () => {
         console.log('Spell checker loaded successfully');
       } catch (error) {
         console.error('Failed to load spell checker:', error);
-        // Fallback to basic spell checking if loading fails
         setIsSpellCheckerReady(false);
       }
     };
@@ -40,7 +41,6 @@ export const useLocalProcessor = () => {
     const suggestions = [];
     
     if (isSpellCheckerReady && spellChecker) {
-      // Split text into words and check each one
       const words = text.match(/\b[a-zA-Z]+\b/g) || [];
       const misspelledWords = new Set();
       
@@ -48,37 +48,55 @@ export const useLocalProcessor = () => {
         if (!spellChecker.correct(word) && word.length > 2 && !misspelledWords.has(word.toLowerCase())) {
           misspelledWords.add(word.toLowerCase());
           
-          // Get suggestions for the misspelled word
           const spellSuggestions = spellChecker.suggest(word);
           if (spellSuggestions.length > 0) {
             const bestSuggestion = spellSuggestions[0];
-            const correctedText = text.replace(new RegExp(`\\b${word}\\b`, 'gi'), bestSuggestion);
+            
+            // Find the context around the misspelled word
+            const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
+            const contextStart = Math.max(0, wordIndex - 20);
+            const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
+            const context = text.substring(contextStart, contextEnd);
             
             suggestions.push({
               type: 'Spelling',
-              text: correctedText,
-              explanation: `Corrected "${word}" to "${bestSuggestion}"`
+              text: text.replace(new RegExp(`\\b${word}\\b`, 'gi'), bestSuggestion),
+              explanation: `Replace "${word}" with "${bestSuggestion}"`,
+              originalWord: word,
+              suggestion: bestSuggestion,
+              context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
             });
           }
         }
       }
     } else {
-      // Fallback to basic spell checking
-      if (text.includes('teh ')) {
-        suggestions.push({
-          type: 'Spelling',
-          text: text.replace(/\bteh\b/g, 'the'),
-          explanation: 'Corrected "teh" to "the"'
-        });
-      }
+      // Enhanced fallback spell checking
+      const fallbackChecks = [
+        { pattern: /\bteh\b/gi, correct: 'the', word: 'teh' },
+        { pattern: /\brecieve\b/gi, correct: 'receive', word: 'recieve' },
+        { pattern: /\baccommodate\b/gi, correct: 'accommodate', word: 'accomodate' },
+        { pattern: /\bseparate\b/gi, correct: 'separate', word: 'seperate' }
+      ];
       
-      if (text.includes('recieve')) {
-        suggestions.push({
-          type: 'Spelling',
-          text: text.replace(/recieve/g, 'receive'),
-          explanation: 'Corrected "recieve" to "receive"'
-        });
-      }
+      fallbackChecks.forEach(({ pattern, correct, word }) => {
+        if (pattern.test(text)) {
+          const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
+          if (wordIndex !== -1) {
+            const contextStart = Math.max(0, wordIndex - 20);
+            const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
+            const context = text.substring(contextStart, contextEnd);
+            
+            suggestions.push({
+              type: 'Spelling',
+              text: text.replace(pattern, correct),
+              explanation: `Replace "${word}" with "${correct}"`,
+              originalWord: word,
+              suggestion: correct,
+              context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
+            });
+          }
+        }
+      });
     }
     
     return suggestions;
@@ -88,7 +106,6 @@ export const useLocalProcessor = () => {
     setIsProcessing(true);
     
     try {
-      // Simulate processing time
       await new Promise(resolve => setTimeout(resolve, 500));
       
       const suggestions = [];
@@ -102,7 +119,8 @@ export const useLocalProcessor = () => {
         suggestions.push({
           type: 'Formatting',
           text: text.replace(/\s+/g, ' '),
-          explanation: 'Removed extra spaces'
+          explanation: 'Remove extra spaces',
+          context: 'Multiple consecutive spaces found'
         });
       }
       
@@ -112,7 +130,8 @@ export const useLocalProcessor = () => {
         suggestions.push({
           type: 'Grammar',
           text: text.replace(capitalizeRegex, (match, letter) => `. ${letter.toUpperCase()}`),
-          explanation: 'Capitalized sentences after periods'
+          explanation: 'Capitalize sentences after periods',
+          context: 'Sentences should start with capital letters'
         });
       }
       
@@ -121,7 +140,8 @@ export const useLocalProcessor = () => {
         suggestions.push({
           type: 'Punctuation',
           text: text.replace(/ ,/g, ','),
-          explanation: 'Fixed comma spacing'
+          explanation: 'Fix comma spacing',
+          context: 'Commas should not have spaces before them'
         });
       }
       
@@ -133,5 +153,29 @@ export const useLocalProcessor = () => {
     }
   };
 
-  return { processText, isProcessing, isSpellCheckerReady };
+  const applySuggestion = (originalText: string, suggestion: any) => {
+    let correctedText = suggestion.text;
+    
+    // Show success toast with specific correction details
+    if (suggestion.originalWord && suggestion.suggestion) {
+      toast({
+        title: "Correction Applied",
+        description: `Changed "${suggestion.originalWord}" to "${suggestion.suggestion}"`,
+      });
+    } else {
+      toast({
+        title: "Improvement Applied",
+        description: suggestion.explanation,
+      });
+    }
+    
+    return correctedText;
+  };
+
+  return { 
+    processText, 
+    isProcessing, 
+    isSpellCheckerReady,
+    applySuggestion
+  };
 };
