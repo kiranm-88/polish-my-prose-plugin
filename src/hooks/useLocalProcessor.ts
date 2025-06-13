@@ -20,11 +20,15 @@ export const useLocalProcessor = () => {
         // Dynamically import nspell to avoid build issues
         const { default: nspell } = await import('nspell');
         
-        // Load dictionary files
+        // Load dictionary files with error handling
         const [affResponse, dicResponse] = await Promise.all([
-          fetch('https://cdn.jsdelivr.net/npm/dictionary-en@3.2.0/index.aff'),
-          fetch('https://cdn.jsdelivr.net/npm/dictionary-en@3.2.0/index.dic')
+          fetch('https://cdn.jsdelivr.net/npm/dictionary-en@3.2.0/index.aff').catch(() => null),
+          fetch('https://cdn.jsdelivr.net/npm/dictionary-en@3.2.0/index.dic').catch(() => null)
         ]);
+        
+        if (!affResponse || !dicResponse || !affResponse.ok || !dicResponse.ok) {
+          throw new Error('Failed to load dictionary files');
+        }
         
         const aff = await affResponse.text();
         const dic = await dicResponse.text();
@@ -40,6 +44,8 @@ export const useLocalProcessor = () => {
   }, []);
 
   const processText = async (text: string) => {
+    if (!text || !text.trim()) return;
+    
     setIsProcessing(true);
     
     try {
@@ -86,16 +92,8 @@ export const useLocalProcessor = () => {
         });
       }
       
-      // Debug: Show what we found locally
-      if (suggestions.length > 0) {
-        console.log('DEBUG: Local suggestions:', suggestions.map(s => `${s.type}: ${s.explanation}`));
-      }
-      
       // Verify and enhance suggestions with OpenAI
       const verifiedSuggestions = await verifyAndEnhanceSuggestions(text, suggestions);
-      
-      // Debug: Show final results
-      console.log('DEBUG: Final suggestions after AI verification:', verifiedSuggestions.length);
       
       // Filter out low confidence suggestions if we have verified ones
       const finalSuggestions = verifiedSuggestions.filter(s => 
@@ -104,7 +102,7 @@ export const useLocalProcessor = () => {
       
       setLocalSuggestions(finalSuggestions);
     } catch (error) {
-      console.error('Local processing error:', error);
+      // Silently handle errors to prevent console spam that causes freezing
     } finally {
       setIsProcessing(false);
     }

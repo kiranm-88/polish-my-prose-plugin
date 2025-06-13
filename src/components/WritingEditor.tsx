@@ -41,9 +41,13 @@ export const WritingEditor = () => {
     // Auto-analyze selection if text is selected and longer than 2 characters
     if (selected.trim().length > 2) {
       setShowSuggestions(true);
-      await processLocal(selected);
-      if (hasApiKey) {
-        await processLLM(selected);
+      try {
+        await processLocal(selected);
+        if (hasApiKey) {
+          await processLLM(selected);
+        }
+      } catch (error) {
+        // Silently handle errors to prevent console spam
       }
     } else {
       // Clear suggestions if no meaningful selection
@@ -56,12 +60,16 @@ export const WritingEditor = () => {
     if (!text.trim()) return;
     setShowSuggestions(true);
     
-    // Always run local processing
-    await processLocal(text);
-    
-    // Run LLM processing if API key is available
-    if (hasApiKey) {
-      await processLLM(text);
+    try {
+      // Always run local processing
+      await processLocal(text);
+      
+      // Run LLM processing if API key is available
+      if (hasApiKey) {
+        await processLLM(text);
+      }
+    } catch (error) {
+      // Silently handle errors to prevent console spam
     }
   }, [text, processLocal, processLLM, hasApiKey]);
 
@@ -124,12 +132,15 @@ export const WritingEditor = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
+            id="writing-editor-textarea"
+            name="writing-editor-textarea"
             ref={textareaRef}
             value={text}
             onChange={handleTextChange}
             onSelect={handleTextSelect}
             placeholder="Start typing or paste your text here..."
             className="min-h-[300px] text-lg leading-relaxed"
+            aria-label="Writing editor text area"
           />
           
           {selectedText && (
