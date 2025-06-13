@@ -8,6 +8,9 @@ export const checkGrammar = (text: string) => {
     { pattern: /\bcheck spellings\b/gi, correct: 'check spelling', explanation: 'Use singular "spelling" after "check"' },
     { pattern: /\bis spellings\b/gi, correct: 'is spelling', explanation: 'Use singular "spelling" with "is"' },
     
+    // Let's vs lets - context-aware checking
+    { pattern: /\blets\s+(go|see|do|try|make|get|take|check|start|begin|move|work|talk|think|look|find|help|play|run|walk|eat|drink|sleep|read|write|learn|teach|study|practice|exercise|relax|rest|finish|stop|continue|proceed|discuss|consider|review|examine|explore|discover|create|build|develop|improve|enhance|optimize|solve|fix|repair|clean|organize|plan|prepare|arrange|schedule|meet|visit|travel|return|leave|stay|come|arrive|depart)\b/gi, correct: (match) => match.replace(/\blets\b/gi, "let's"), explanation: 'Use "let\'s" (let us) instead of "lets" when suggesting action' },
+    
     // Subject-verb agreement
     { pattern: /\b(I|you|we|they) was\b/gi, correct: 'were', explanation: 'Subject-verb agreement: use "were" with plural subjects' },
     { pattern: /\b(he|she|it) were\b/gi, correct: 'was', explanation: 'Subject-verb agreement: use "was" with singular subjects' },
