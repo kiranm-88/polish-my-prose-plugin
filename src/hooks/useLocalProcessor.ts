@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSuggestions } from './useSuggestions';
 import { useOpenAIVerifier } from './useOpenAIVerifier';
@@ -140,22 +139,31 @@ export const useLocalProcessor = () => {
       
       console.log('🔧 Local processor found', suggestions.length, 'suggestions:', suggestions);
       
-      // Try to verify with OpenAI, but don't let it fail the whole process
-      let finalSuggestions = suggestions;
+      // Prepare local suggestions with default confidence
+      const localSuggestionsWithConfidence = suggestions.map(s => ({
+        ...s,
+        confidence: 'medium' as const,
+        verified: false
+      }));
+      
+      // Try to verify with OpenAI, but keep local suggestions if it fails
+      let finalSuggestions = localSuggestionsWithConfidence;
       try {
         const verifiedSuggestions = await verifyAndEnhanceSuggestions(text, suggestions);
-        // Filter out low confidence suggestions if we have verified ones
-        finalSuggestions = verifiedSuggestions.filter(s => 
-          s.verified || s.confidence !== 'low'
-        );
+        if (verifiedSuggestions && verifiedSuggestions.length > 0) {
+          // Only use verified suggestions if OpenAI actually returned some
+          finalSuggestions = verifiedSuggestions.filter(s => 
+            s.verified || s.confidence !== 'low'
+          );
+        }
+        // If OpenAI returns empty array or fails, keep local suggestions
+        if (finalSuggestions.length === 0 && localSuggestionsWithConfidence.length > 0) {
+          finalSuggestions = localSuggestionsWithConfidence;
+        }
       } catch (error) {
         console.log('OpenAI verification failed, using local suggestions');
-        // If OpenAI fails, use local suggestions with default confidence
-        finalSuggestions = suggestions.map(s => ({
-          ...s,
-          confidence: 'medium' as const,
-          verified: false
-        }));
+        // If OpenAI fails, always use local suggestions
+        finalSuggestions = localSuggestionsWithConfidence;
       }
       
       console.log('🔧 Final suggestions being set:', finalSuggestions);
