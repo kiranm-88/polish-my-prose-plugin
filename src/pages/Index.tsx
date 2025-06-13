@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { WritingEditor } from '@/components/WritingEditor';
+import { EnhancedWritingEditor } from '@/components/EnhancedWritingEditor';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { Button } from '@/components/ui/button';
@@ -42,7 +41,7 @@ const Index = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
-            <WritingEditor />
+            <EnhancedWritingEditor />
           </div>
           
           {showSettings && (
