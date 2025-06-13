@@ -45,19 +45,17 @@ export const useLocalProcessor = () => {
     setIsProcessing(true);
     
     try {
-      console.log('🔄 Local processing started for text:', text);
+      console.log('Processing text:', text.substring(0, 50) + '...');
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const suggestions = [];
       
       // Grammar checking
       const grammarSuggestions = checkGrammar(text);
-      console.log('📝 Grammar suggestions:', grammarSuggestions);
       suggestions.push(...grammarSuggestions);
       
       // Spell checking
       const spellingSuggestions = checkSpelling(text, spellChecker, isSpellCheckerReady);
-      console.log('🔤 Spelling suggestions:', spellingSuggestions);
       suggestions.push(...spellingSuggestions);
       
       // Multiple spaces
@@ -91,19 +89,17 @@ export const useLocalProcessor = () => {
         });
       }
       
-      console.log('📋 Total local suggestions before verification:', suggestions.length);
+      console.log('Local suggestions found:', suggestions.length);
       
       // Verify and enhance suggestions with OpenAI
-      console.log('🔍 Starting OpenAI verification...');
       const verifiedSuggestions = await verifyAndEnhanceSuggestions(text, suggestions);
-      console.log('✅ OpenAI verification complete. Verified suggestions:', verifiedSuggestions);
       
       // Filter out low confidence suggestions if we have verified ones
       const finalSuggestions = verifiedSuggestions.filter(s => 
         s.verified || s.confidence !== 'low'
       );
       
-      console.log('🎯 Final suggestions after filtering:', finalSuggestions);
+      console.log('Final suggestions:', finalSuggestions.length);
       
       setLocalSuggestions(finalSuggestions);
     } catch (error) {
