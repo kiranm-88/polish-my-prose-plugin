@@ -34,41 +34,49 @@ export const useLLMProcessor = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a professional writing assistant. Your job is to analyze text and provide specific, actionable improvements.
+            content: `You are a professional writing assistant. Analyze the provided text for errors and improvements.
 
-IMPORTANT: Only suggest changes if there are actual issues to fix. If the text is already well-written, return an empty array.
+CRITICAL: You must find and fix ALL errors in the text. Look for:
+- Missing punctuation (commas, apostrophes, periods)
+- Spelling errors and typos
+- Grammar mistakes
+- Regional spelling inconsistencies (use American English)
+- Capitalization errors
+- Word choice improvements
 
-For each suggestion you provide:
-1. Identify a specific problem (grammar, spelling, clarity, style, etc.)
-2. Provide the CORRECTED version of the text
-3. Explain what was wrong and why your version is better
+For the example "Acceptable let's try again, Lets catch up at the end of the week and finalise the deal." you should find:
+1. Missing comma after "Acceptable"
+2. Missing apostrophe in "Lets" 
+3. British spelling "finalise" should be "finalize"
 
 Respond with a JSON array. Each suggestion must have:
-- type: string (one of: "Grammar", "Spelling", "Clarity", "Style", "Punctuation", "Conciseness")
-- text: string (the IMPROVED version of the entire text)
-- explanation: string (specific explanation of what was wrong and how you fixed it)
+- type: string (one of: "Grammar", "Spelling", "Punctuation", "Style", "Clarity")
+- text: string (the CORRECTED version of the entire text)
+- explanation: string (specific explanation of what was wrong)
 
-Example response:
+Example:
 [
   {
-    "type": "Grammar",
-    "text": "Let's catch up at the end of the week and finalize the deal.",
-    "explanation": "Changed 'finalise' to 'finalize' for American English spelling consistency"
+    "type": "Punctuation",
+    "text": "Acceptable, let's try again. Let's catch up at the end of the week and finalize the deal.",
+    "explanation": "Added missing comma after 'Acceptable', fixed apostrophe in 'Let's', and changed British 'finalise' to American 'finalize'"
   }
 ]
 
-If no improvements are needed, return: []`
+IMPORTANT: Always return the complete corrected text, not just the changed parts.`
           },
           {
             role: 'user',
-            content: `Analyze this text for errors and improvements: "${text}"`
+            content: `Find and fix ALL errors in this text: "${text}"`
           }
         ],
         temperature: 0.1,
         max_tokens: 1000,
       };
 
-      console.log('Sending request to OpenAI with text:', text);
+      console.log('=== OpenAI Request ===');
+      console.log('Text to analyze:', text);
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -88,7 +96,9 @@ If no improvements are needed, return: []`
       const data = await response.json();
       const content = data.choices[0]?.message?.content;
 
-      console.log('OpenAI raw response:', content);
+      console.log('=== OpenAI Response ===');
+      console.log('Raw response:', content);
+      console.log('Full API response:', JSON.stringify(data, null, 2));
 
       if (!content) {
         throw new Error('No response from OpenAI');
@@ -103,19 +113,37 @@ If no improvements are needed, return: []`
           throw new Error('Invalid response format from OpenAI');
         }
         
+        console.log('=== Suggestion Analysis ===');
+        console.log('Total suggestions received:', suggestions.length);
+        
         // Filter out suggestions that don't actually change the text
-        const validSuggestions = suggestions.filter(suggestion => {
+        const validSuggestions = suggestions.filter((suggestion, index) => {
+          console.log(`Suggestion ${index + 1}:`, suggestion);
+          console.log(`Original text: "${text.trim()}"`);
+          console.log(`Suggested text: "${suggestion.text?.trim()}"`);
+          console.log(`Text changed: ${suggestion.text?.trim() !== text.trim()}`);
+          
           if (!suggestion.text || !suggestion.explanation) {
+            console.log(`Suggestion ${index + 1} rejected: Missing text or explanation`);
             return false;
           }
+          
           // Only include if the suggestion actually changes something
-          return suggestion.text.trim() !== text.trim();
+          const textChanged = suggestion.text.trim() !== text.trim();
+          if (!textChanged) {
+            console.log(`Suggestion ${index + 1} rejected: No text changes`);
+          }
+          return textChanged;
         });
         
-        console.log('OpenAI provided', validSuggestions.length, 'valid suggestions out of', suggestions.length, 'total');
+        console.log('=== Final Results ===');
+        console.log('Valid suggestions after filtering:', validSuggestions.length);
+        console.log('Valid suggestions:', validSuggestions);
+        
         setLLMSuggestions(validSuggestions);
       } catch (parseError) {
         console.error('Failed to parse OpenAI response as JSON:', content);
+        console.error('Parse error:', parseError);
         // If it's not valid JSON, don't create fallback suggestions
         setLLMSuggestions([]);
       }
