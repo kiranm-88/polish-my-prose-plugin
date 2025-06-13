@@ -34,28 +34,41 @@ export const useLLMProcessor = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a professional writing assistant. Analyze the provided text and suggest improvements for:
-            1. Grammar and spelling corrections
-            2. Clarity and conciseness
-            3. Tone and style improvements
-            4. Removing redundant words
-            5. Making the text more engaging
+            content: `You are a professional writing assistant. Your job is to analyze text and provide specific, actionable improvements.
 
-            Respond with a JSON array of suggestions. Each suggestion should have:
-            - type: string (Grammar, Style, Clarity, etc.)
-            - text: string (the corrected/improved version of the entire text)
-            - explanation: string (what was improved and why)
+IMPORTANT: Only suggest changes if there are actual issues to fix. If the text is already well-written, return an empty array.
 
-            Only provide genuinely helpful suggestions. If the text is already good, return fewer suggestions.`
+For each suggestion you provide:
+1. Identify a specific problem (grammar, spelling, clarity, style, etc.)
+2. Provide the CORRECTED version of the text
+3. Explain what was wrong and why your version is better
+
+Respond with a JSON array. Each suggestion must have:
+- type: string (one of: "Grammar", "Spelling", "Clarity", "Style", "Punctuation", "Conciseness")
+- text: string (the IMPROVED version of the entire text)
+- explanation: string (specific explanation of what was wrong and how you fixed it)
+
+Example response:
+[
+  {
+    "type": "Grammar",
+    "text": "Let's catch up at the end of the week and finalize the deal.",
+    "explanation": "Changed 'finalise' to 'finalize' for American English spelling consistency"
+  }
+]
+
+If no improvements are needed, return: []`
           },
           {
             role: 'user',
-            content: `Please analyze and improve this text: "${text}"`
+            content: `Analyze this text for errors and improvements: "${text}"`
           }
         ],
-        temperature: 0.3,
-        max_tokens: 1500,
+        temperature: 0.1,
+        max_tokens: 1000,
       };
+
+      console.log('Sending request to OpenAI with text:', text);
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -75,6 +88,8 @@ export const useLLMProcessor = () => {
       const data = await response.json();
       const content = data.choices[0]?.message?.content;
 
+      console.log('OpenAI raw response:', content);
+
       if (!content) {
         throw new Error('No response from OpenAI');
       }
@@ -84,19 +99,25 @@ export const useLLMProcessor = () => {
         const suggestions = JSON.parse(content);
         
         if (!Array.isArray(suggestions)) {
+          console.error('OpenAI returned non-array response:', suggestions);
           throw new Error('Invalid response format from OpenAI');
         }
         
-        console.log('OpenAI provided', suggestions.length, 'suggestions');
-        setLLMSuggestions(suggestions);
+        // Filter out suggestions that don't actually change the text
+        const validSuggestions = suggestions.filter(suggestion => {
+          if (!suggestion.text || !suggestion.explanation) {
+            return false;
+          }
+          // Only include if the suggestion actually changes something
+          return suggestion.text.trim() !== text.trim();
+        });
+        
+        console.log('OpenAI provided', validSuggestions.length, 'valid suggestions out of', suggestions.length, 'total');
+        setLLMSuggestions(validSuggestions);
       } catch (parseError) {
-        console.error('Failed to parse OpenAI response:', content);
-        // Fallback: create a single suggestion with the raw response
-        setLLMSuggestions([{
-          type: 'AI Enhancement',
-          text: content,
-          explanation: 'AI-generated improvement suggestion'
-        }]);
+        console.error('Failed to parse OpenAI response as JSON:', content);
+        // If it's not valid JSON, don't create fallback suggestions
+        setLLMSuggestions([]);
       }
 
     } catch (error) {
