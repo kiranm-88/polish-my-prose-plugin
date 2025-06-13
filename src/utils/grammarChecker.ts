@@ -9,7 +9,7 @@ export const checkGrammar = (text: string) => {
     { pattern: /\bis spellings\b/gi, correct: 'is spelling', explanation: 'Use singular "spelling" with "is"' },
     
     // Let's vs lets - context-aware checking
-    { pattern: /\blets\s+(go|see|do|try|make|get|take|check|start|begin|move|work|talk|think|look|find|help|play|run|walk|eat|drink|sleep|read|write|learn|teach|study|practice|exercise|relax|rest|finish|stop|continue|proceed|discuss|consider|review|examine|explore|discover|create|build|develop|improve|enhance|optimize|solve|fix|repair|clean|organize|plan|prepare|arrange|schedule|meet|visit|travel|return|leave|stay|come|arrive|depart)\b/gi, correct: (match) => match.replace(/\blets\b/gi, "let's"), explanation: 'Use "let\'s" (let us) instead of "lets" when suggesting action' },
+    { pattern: /\blets\s+(go|see|do|try|make|get|take|check|start|begin|move|work|talk|think|look|find|help|play|run|walk|eat|drink|sleep|read|write|learn|teach|study|practice|exercise|relax|rest|finish|stop|continue|proceed|discuss|consider|review|examine|explore|discover|create|build|develop|improve|enhance|optimize|solve|fix|repair|clean|organize|plan|prepare|arrange|schedule|meet|visit|travel|return|leave|stay|come|arrive|depart)\b/gi, correct: "let's", explanation: 'Use "let\'s" (let us) instead of "lets" when suggesting action' },
     
     // Subject-verb agreement
     { pattern: /\b(I|you|we|they) was\b/gi, correct: 'were', explanation: 'Subject-verb agreement: use "were" with plural subjects' },
@@ -21,7 +21,7 @@ export const checkGrammar = (text: string) => {
     { pattern: /\bwould of\b/gi, correct: 'would have', explanation: 'Use "would have" instead of "would of"' },
     
     // Common pronoun errors
-    { pattern: /\bme and \w+\b/gi, correct: (match) => match.replace('me and', 'X and I'), explanation: 'Use "X and I" instead of "me and X" as subject' },
+    { pattern: /\bme and \w+\b/gi, correct: 'X and I', explanation: 'Use "X and I" instead of "me and X" as subject' },
     
     // Incorrect comparisons
     { pattern: /\bmore better\b/gi, correct: 'better', explanation: 'Use "better" instead of "more better"' },
@@ -37,11 +37,11 @@ export const checkGrammar = (text: string) => {
     
     // Common word confusions
     { pattern: /\bthen\b(?=\s+(he|she|it|they|we|I))/gi, correct: 'than', explanation: 'Use "than" for comparisons' },
-    { pattern: /\byour\s+(going|coming|being|doing)\b/gi, correct: (match) => match.replace('your', "you're"), explanation: 'Use "you\'re" (you are) instead of "your"' },
-    { pattern: /\bits\s+(going|being|doing|coming)\b/gi, correct: (match) => match.replace('its', "it's"), explanation: 'Use "it\'s" (it is) instead of "its"' },
+    { pattern: /\byour\s+(going|coming|being|doing)\b/gi, correct: "you're", explanation: 'Use "you\'re" (you are) instead of "your"' },
+    { pattern: /\bits\s+(going|being|doing|coming)\b/gi, correct: "it's", explanation: 'Use "it\'s" (it is) instead of "its"' },
     
     // Missing articles
-    { pattern: /\bin\s+(beginning|end|middle)\b/gi, correct: (match) => match.replace('in ', 'in the '), explanation: 'Add article "the"' },
+    { pattern: /\bin\s+(beginning|end|middle)\b/gi, correct: 'in the', explanation: 'Add article "the"' },
     
     // Redundant phrases
     { pattern: /\bfree gift\b/gi, correct: 'gift', explanation: 'Remove redundant word - gifts are inherently free' },
@@ -56,11 +56,20 @@ export const checkGrammar = (text: string) => {
       const contextEnd = Math.min(text.length, wordIndex + match[0].length + 20);
       const context = text.substring(contextStart, contextEnd);
       
+      // Handle the lets -> let's specific case with proper replacement
       let correctedText;
-      if (typeof correct === 'function') {
-        correctedText = text.replace(pattern, correct);
+      let suggestionText;
+      
+      if (pattern.source.includes('lets\\s+')) {
+        // Special handling for "lets" -> "let's" pattern
+        correctedText = text.replace(pattern, (fullMatch) => {
+          return fullMatch.replace(/\blets\b/gi, "let's");
+        });
+        suggestionText = "let's";
       } else {
+        // Standard replacement
         correctedText = text.replace(pattern, correct);
+        suggestionText = correct;
       }
       
       suggestions.push({
@@ -68,7 +77,7 @@ export const checkGrammar = (text: string) => {
         text: correctedText,
         explanation: explanation,
         originalWord: match[0],
-        suggestion: typeof correct === 'function' ? correct(match[0]) : correct,
+        suggestion: suggestionText,
         context: context.replace(new RegExp(match[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), `**${match[0]}**`)
       });
     }
