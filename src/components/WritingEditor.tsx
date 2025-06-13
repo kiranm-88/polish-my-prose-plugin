@@ -32,9 +32,6 @@ export const WritingEditor = () => {
   };
 
   const handleTextSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    // Prevent any cross-site context issues
-    e.stopPropagation();
-    
     try {
       const target = e.target as HTMLTextAreaElement;
       if (!target) return;
@@ -44,23 +41,18 @@ export const WritingEditor = () => {
       setSelectionStart(target.selectionStart);
       setSelectionEnd(target.selectionEnd);
       
-      // Only process if we have meaningful selection
       if (selected.trim().length > 2) {
         setShowSuggestions(true);
-        
-        // Defer processing to avoid blocking
-        setTimeout(() => {
-          processLocal(selected).catch(() => {});
-          if (hasApiKey) {
-            processLLM(selected).catch(() => {});
-          }
-        }, 0);
+        processLocal(selected);
+        if (hasApiKey) {
+          processLLM(selected);
+        }
       } else {
         clearSuggestions();
         setShowSuggestions(false);
       }
     } catch (error) {
-      // Silent error handling
+      console.error('Text selection error:', error);
     }
   }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
 
@@ -68,29 +60,23 @@ export const WritingEditor = () => {
     if (!text.trim()) return;
     setShowSuggestions(true);
     
-    // Defer processing to avoid blocking
-    setTimeout(() => {
-      processLocal(text).catch(() => {});
-      if (hasApiKey) {
-        processLLM(text).catch(() => {});
-      }
-    }, 0);
+    processLocal(text);
+    if (hasApiKey) {
+      processLLM(text);
+    }
   }, [text, processLocal, processLLM, hasApiKey]);
 
   const applySuggestion = (suggestion: any) => {
     if (selectedText && selectionStart !== selectionEnd) {
-      // Apply suggestion to selected text using position-based replacement
       const correctedText = applyLocalSuggestion(selectedText, suggestion);
       const newText = text.substring(0, selectionStart) + correctedText + text.substring(selectionEnd);
       setText(newText);
       
-      // Update selection to highlight the changed text
       const newSelectionEnd = selectionStart + correctedText.length;
       setSelectionStart(selectionStart);
       setSelectionEnd(newSelectionEnd);
       setSelectedText(correctedText);
       
-      // Focus and update selection in textarea
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus();
@@ -98,13 +84,11 @@ export const WritingEditor = () => {
         }
       }, 0);
     } else {
-      // Apply suggestion to full text
       const correctedText = applyLocalSuggestion(text, suggestion);
       setText(correctedText);
       setSelectedText('');
     }
     
-    // Clear suggestions after applying
     clearSuggestions();
     setShowSuggestions(false);
   };
@@ -135,22 +119,15 @@ export const WritingEditor = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={(e) => e.preventDefault()}>
-            <Textarea
-              id="writing-editor-textarea"
-              name="writingText"
-              ref={textareaRef}
-              value={text}
-              onChange={handleTextChange}
-              onSelect={handleTextSelect}
-              placeholder="Start typing or paste your text here..."
-              className="min-h-[300px] text-lg leading-relaxed"
-              aria-label="Writing editor textarea"
-              autoComplete="off"
-              spellCheck="false"
-              required
-            />
-          </form>
+          <Textarea
+            ref={textareaRef}
+            value={text}
+            onChange={handleTextChange}
+            onSelect={handleTextSelect}
+            placeholder="Start typing or paste your text here..."
+            className="min-h-[300px] text-lg leading-relaxed"
+            spellCheck="false"
+          />
           
           {selectedText && (
             <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">

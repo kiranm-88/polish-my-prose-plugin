@@ -14,8 +14,6 @@ export const useLLMProcessor = () => {
     };
 
     checkApiKey();
-    
-    // Listen for storage changes
     window.addEventListener('storage', checkApiKey);
     return () => window.removeEventListener('storage', checkApiKey);
   }, []);
@@ -27,6 +25,7 @@ export const useLLMProcessor = () => {
     if (!apiKey) return;
     
     setIsProcessing(true);
+    console.log('🔍 Processing text:', text);
     
     try {
       const requestBody = {
@@ -34,39 +33,39 @@ export const useLLMProcessor = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a writing assistant. Your job is to find and fix errors in text.
+            content: `You are a writing assistant that finds and corrects errors in text.
 
-Find these types of errors:
-- Missing punctuation (commas, apostrophes, periods)
-- Spelling mistakes and typos
-- Grammar errors
-- Use American English spelling
+Find these specific types of errors:
+1. Missing punctuation (commas, periods, apostrophes)
+2. Spelling mistakes and typos
+3. Grammar errors
+4. British to American English conversion
 
-IMPORTANT: Only suggest corrections if you find actual errors. If the text is already correct, return an empty array [].
+CRITICAL: Only return corrections if you find ACTUAL errors. If the text is perfect, return an empty array [].
 
-Respond ONLY with a JSON array. Each correction should have:
+Each correction must have:
 {
-  "type": "Grammar" | "Spelling" | "Punctuation",
-  "text": "the corrected text",
+  "type": "Grammar|Spelling|Punctuation", 
+  "text": "the fully corrected text",
   "explanation": "what was fixed"
 }
 
-Examples:
-- "lets go" → "let's go" (missing apostrophe)
-- "finalise" → "finalize" (American spelling)
-- "Hello,how are you" → "Hello, how are you" (missing space)`
+Examples of what to fix:
+- "ok let's" → "Ok, let's" (missing comma, capitalization)
+- "Lets go" → "Let's go" (missing apostrophe)
+- "finalise" → "finalize" (British to American)
+- "sdeal" → "deal" (typo)`
           },
           {
             role: 'user',
-            content: `Fix any errors in this text: "${text}"`
+            content: `Analyze and fix errors in: "${text}"`
           }
         ],
         temperature: 0.1,
         max_tokens: 800,
       };
 
-      console.log('🔍 Analyzing text:', text);
-      console.log('📤 Sending to OpenAI...');
+      console.log('📤 Sending request to OpenAI...');
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -86,7 +85,7 @@ Examples:
       const data = await response.json();
       const content = data.choices[0]?.message?.content?.trim();
 
-      console.log('📥 OpenAI response:', content);
+      console.log('📥 Raw OpenAI response:', content);
 
       if (!content) {
         console.log('⚠️ Empty response from OpenAI');
@@ -94,7 +93,6 @@ Examples:
         return;
       }
 
-      // Try to parse JSON response
       try {
         const suggestions = JSON.parse(content);
         
@@ -104,31 +102,31 @@ Examples:
           return;
         }
         
-        console.log(`✅ Parsed ${suggestions.length} suggestions`);
+        console.log(`📊 Received ${suggestions.length} suggestions from OpenAI`);
         
-        // Validate each suggestion
-        const validSuggestions = suggestions.filter((suggestion, index) => {
-          const isValid = suggestion.text && 
-                         suggestion.explanation && 
-                         suggestion.text.trim() !== text.trim();
+        // Filter out suggestions that don't actually change the text
+        const validSuggestions = suggestions.filter((suggestion) => {
+          const hasRequiredFields = suggestion.text && suggestion.explanation;
+          const textChanged = suggestion.text.trim().toLowerCase() !== text.trim().toLowerCase();
           
-          console.log(`Suggestion ${index + 1}:`, {
-            valid: isValid,
-            hasText: !!suggestion.text,
-            hasExplanation: !!suggestion.explanation,
-            textChanged: suggestion.text?.trim() !== text.trim(),
-            suggestion
+          console.log('🔍 Validating suggestion:', {
+            text: suggestion.text,
+            explanation: suggestion.explanation,
+            hasRequiredFields,
+            textChanged,
+            original: text.trim(),
+            suggested: suggestion.text?.trim()
           });
           
-          return isValid;
+          return hasRequiredFields && textChanged;
         });
         
-        console.log(`🎯 Final valid suggestions: ${validSuggestions.length}`);
+        console.log(`✅ Valid suggestions after filtering: ${validSuggestions.length}`);
         setLLMSuggestions(validSuggestions);
         
       } catch (parseError) {
         console.error('❌ JSON parse error:', parseError);
-        console.error('Raw content that failed to parse:', content);
+        console.error('Failed to parse content:', content);
         setLLMSuggestions([]);
       }
 
