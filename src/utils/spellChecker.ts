@@ -9,6 +9,7 @@ export const checkSpelling = (text: string, spellChecker: any, isSpellCheckerRea
     // Your example errors
     { pattern: /\bstatmentn\b/gi, correct: 'statement', word: 'statmentn' },
     { pattern: /\bchelc\b/gi, correct: 'check', word: 'chelc' },
+    { pattern: /\bsdeal\b/gi, correct: 'deal', word: 'sdeal' },
     
     // Common typos
     { pattern: /\bteh\b/gi, correct: 'the', word: 'teh' },
@@ -33,6 +34,17 @@ export const checkSpelling = (text: string, spellChecker: any, isSpellCheckerRea
     { pattern: /\bpiece\b/gi, correct: 'piece', word: 'peice' },
     { pattern: /\bweird\b/gi, correct: 'weird', word: 'wierd' },
     { pattern: /\bseize\b/gi, correct: 'seize', word: 'seige' },
+  ];
+  
+  // Enhanced suspicious word detection - flag words that might be misspelled
+  const suspiciousPatterns = [
+    // Words with unusual letter combinations
+    /\b\w*[qxz]{2,}\w*\b/gi, // Multiple q, x, or z
+    /\b\w*[bcdfghjklmnpqrstvwxyz]{4,}\w*\b/gi, // 4+ consecutive consonants
+    /\b\w*[aeiou]{4,}\w*\b/gi, // 4+ consecutive vowels
+    /\b\w*(.)\1{3,}\w*\b/gi, // Same letter repeated 4+ times
+    /\b[a-z]*[0-9]+[a-z]*\b/gi, // Letters mixed with numbers
+    /\b\w{15,}\b/gi, // Very long words (might be typos)
   ];
   
   // Handle "thos" with context analysis
@@ -73,6 +85,36 @@ export const checkSpelling = (text: string, spellChecker: any, isSpellCheckerRea
           originalWord: word,
           suggestion: correct,
           context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`)
+        });
+      }
+    }
+  });
+  
+  // Check for suspicious words that might be misspelled
+  suspiciousPatterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      const word = match[0];
+      // Skip if already found in fallback checks or common words
+      const alreadyFound = fallbackChecks.some(({ word: fallbackWord }) => 
+        word.toLowerCase() === fallbackWord.toLowerCase()
+      );
+      
+      const commonWords = ['the', 'and', 'that', 'have', 'for', 'not', 'with', 'you', 'this', 'but', 'his', 'from', 'they'];
+      if (!alreadyFound && !commonWords.includes(word.toLowerCase()) && word.length > 2) {
+        const wordIndex = match.index || 0;
+        const contextStart = Math.max(0, wordIndex - 20);
+        const contextEnd = Math.min(text.length, wordIndex + word.length + 20);
+        const context = text.substring(contextStart, contextEnd);
+        
+        suggestions.push({
+          type: 'Spelling',
+          text: text,
+          explanation: `"${word}" might be misspelled - please check spelling`,
+          originalWord: word,
+          suggestion: word,
+          context: context.replace(new RegExp(`\\b${word}\\b`, 'gi'), `**${word}**`),
+          flagged: true
         });
       }
     }
