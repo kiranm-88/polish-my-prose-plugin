@@ -38,17 +38,11 @@ export const EnhancedWritingEditor = () => {
     const newText = e.target.value;
     setText(newText);
     
-    // Debounce analysis for style suggestions
-    const timeoutId = setTimeout(() => {
-      if (newText.trim().length > 10) {
-        analyzeWholeText(newText);
-      } else {
-        clearAnalyses();
-      }
-    }, 500);
-    
-    return () => clearTimeout(timeoutId);
-  }, [analyzeWholeText, clearAnalyses]);
+    // Clear previous analyses when text changes
+    clearAnalyses();
+    clearSuggestions();
+    setShowErrorSuggestions(false);
+  }, [clearAnalyses, clearSuggestions]);
 
   const handleTextSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
     try {
@@ -83,6 +77,11 @@ export const EnhancedWritingEditor = () => {
       return;
     }
     
+    // Generate analysis immediately when sparkle is clicked
+    if (text.trim().length > 10) {
+      analyzeWholeText(text);
+    }
+    
     // Calculate position for the suggestion popup relative to the sparkle button
     const rect = sparkleButtonRef.current?.getBoundingClientRect();
     const containerRect = containerRef.current?.getBoundingClientRect();
@@ -95,17 +94,12 @@ export const EnhancedWritingEditor = () => {
     }
     
     setShowSuggestion(true);
-  }, [showSuggestion]);
+  }, [showSuggestion, text, analyzeWholeText]);
 
   const handleSuggestionSelect = useCallback((selectedText: string) => {
     setText(selectedText);
     setShowSuggestion(false);
-    
-    // Reanalyze after change
-    setTimeout(() => {
-      analyzeWholeText(selectedText);
-    }, 100);
-  }, [analyzeWholeText]);
+  }, []);
 
   const handleSuggestionDismiss = useCallback(() => {
     setShowSuggestion(false);
@@ -138,6 +132,9 @@ export const EnhancedWritingEditor = () => {
     setShowErrorSuggestions(false);
   };
 
+  // Show sparkle button when there's enough text, regardless of analysis state
+  const showSparkleButton = text.trim().length > 10;
+
   return (
     <div className="space-y-4" ref={containerRef}>
       <Card>
@@ -145,14 +142,14 @@ export const EnhancedWritingEditor = () => {
           <CardTitle className="flex items-center justify-between">
             <span>Writing Assistant</span>
             <div className="flex items-center gap-2">
-              {analysis && (
+              {showSparkleButton && (
                 <Button
                   ref={sparkleButtonRef}
                   variant="ghost"
                   size="sm"
                   onClick={handleSparkleClick}
                   className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                  title="Get style variations (formal/casual)"
+                  title="Polish your text - get formal/casual variations"
                 >
                   <Sparkles className="h-4 w-4" />
                 </Button>
