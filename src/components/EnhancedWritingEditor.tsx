@@ -3,18 +3,20 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { InlineSuggestions } from './InlineSuggestions';
 import { useSentenceAnalyzer } from '@/hooks/useSentenceAnalyzer';
 import { Sparkles, Zap } from 'lucide-react';
 
 export const EnhancedWritingEditor = () => {
   const [text, setText] = useState('');
-  const [showSuggestion, setShowSuggestion] = useState<number | null>(null);
+  const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionPosition, setSuggestionPosition] = useState({ top: 0, left: 0 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sparkleButtonRef = useRef<HTMLButtonElement>(null);
   
-  const { analyses, analyzeSentences, clearAnalyses } = useSentenceAnalyzer();
+  const { analysis, analyzeWholeText, clearAnalyses } = useSentenceAnalyzer();
 
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
@@ -22,88 +24,51 @@ export const EnhancedWritingEditor = () => {
     
     // Debounce analysis
     const timeoutId = setTimeout(() => {
-      if (newText.trim()) {
-        analyzeSentences(newText);
+      if (newText.trim().length > 10) {
+        analyzeWholeText(newText);
       } else {
         clearAnalyses();
       }
     }, 500);
     
     return () => clearTimeout(timeoutId);
-  }, [analyzeSentences, clearAnalyses]);
+  }, [analyzeWholeText, clearAnalyses]);
 
-  const handleIconClick = useCallback((analysisKey: number, event: React.MouseEvent) => {
+  const handleSparkleClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
     
-    if (showSuggestion === analysisKey) {
-      setShowSuggestion(null);
+    if (showSuggestion) {
+      setShowSuggestion(false);
       return;
     }
     
-    // Calculate position for the suggestion popup
-    const rect = (event.target as HTMLElement).getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect() || { top: 0, left: 0 };
+    // Calculate position for the suggestion popup relative to the sparkle button
+    const rect = sparkleButtonRef.current?.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
     
-    setSuggestionPosition({
-      top: rect.top - containerRect.top - 10,
-      left: rect.left - containerRect.left
-    });
+    if (rect && containerRect) {
+      setSuggestionPosition({
+        top: rect.bottom - containerRect.top + 5,
+        left: rect.left - containerRect.left - 100 // Offset to center better
+      });
+    }
     
-    setShowSuggestion(analysisKey);
+    setShowSuggestion(true);
   }, [showSuggestion]);
 
   const handleSuggestionSelect = useCallback((selectedText: string) => {
-    if (showSuggestion === null) return;
-    
-    const analysis = analyses.get(showSuggestion);
-    if (!analysis) return;
-    
-    // Replace the original sentence with the selected suggestion
-    const newText = text.replace(analysis.original, selectedText);
-    setText(newText);
-    
-    setShowSuggestion(null);
+    setText(selectedText);
+    setShowSuggestion(false);
     
     // Reanalyze after change
     setTimeout(() => {
-      analyzeSentences(newText);
+      analyzeWholeText(selectedText);
     }, 100);
-  }, [showSuggestion, analyses, text, analyzeSentences]);
+  }, [analyzeWholeText]);
 
   const handleSuggestionDismiss = useCallback(() => {
-    setShowSuggestion(null);
+    setShowSuggestion(false);
   }, []);
-
-  const renderTextWithIcons = () => {
-    if (!text || analyses.size === 0) {
-      return null;
-    }
-
-    const icons = Array.from(analyses.entries()).map(([key, analysis]) => {
-      // Calculate approximate position of the icon
-      const beforeText = text.substring(0, analysis.position);
-      const lines = beforeText.split('\n');
-      const lineNumber = lines.length - 1;
-      const charInLine = lines[lines.length - 1].length;
-      
-      return (
-        <span
-          key={key}
-          className="absolute cursor-pointer text-blue-500 hover:text-blue-700 ml-1"
-          style={{
-            top: `${lineNumber * 1.5 + 0.5}rem`,
-            left: `${charInLine * 0.6 + 0.5}rem`,
-            zIndex: 10
-          }}
-          onClick={(e) => handleIconClick(key, e)}
-        >
-          <Sparkles className="h-4 w-4" />
-        </span>
-      );
-    });
-
-    return icons;
-  };
 
   return (
     <div className="space-y-4" ref={containerRef}>
@@ -111,10 +76,23 @@ export const EnhancedWritingEditor = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Enhanced Writing Assistant</span>
-            <Badge variant="outline" className="gap-1">
-              <Zap className="h-3 w-3 text-blue-500" />
-              Smart Suggestions
-            </Badge>
+            <div className="flex items-center gap-2">
+              {analysis && (
+                <Button
+                  ref={sparkleButtonRef}
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSparkleClick}
+                  className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              )}
+              <Badge variant="outline" className="gap-1">
+                <Zap className="h-3 w-3 text-blue-500" />
+                Smart Suggestions
+              </Badge>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -123,21 +101,20 @@ export const EnhancedWritingEditor = () => {
               ref={textareaRef}
               value={text}
               onChange={handleTextChange}
-              placeholder="Start typing... Smart suggestions will appear as you write!"
-              className="min-h-[300px] text-lg leading-relaxed pr-8"
+              placeholder="Start typing... Smart suggestions will appear when you have enough text!"
+              className="min-h-[300px] text-lg leading-relaxed"
             />
-            {renderTextWithIcons()}
           </div>
           
           <div className="text-sm text-muted-foreground">
-            💡 <strong>Tip:</strong> Look for the ✨ icons at the end of sentences - click them to see formal and casual versions!
+            💡 <strong>Tip:</strong> Look for the ✨ icon in the header - click it to see formal and casual versions of your text!
           </div>
         </CardContent>
       </Card>
 
-      {showSuggestion !== null && analyses.has(showSuggestion) && (
+      {showSuggestion && analysis && (
         <InlineSuggestions
-          suggestions={analyses.get(showSuggestion)!.suggestions}
+          suggestions={analysis.suggestions}
           onSelect={handleSuggestionSelect}
           onDismiss={handleSuggestionDismiss}
           position={suggestionPosition}

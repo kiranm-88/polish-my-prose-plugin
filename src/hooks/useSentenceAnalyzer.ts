@@ -3,48 +3,47 @@ import { useState, useCallback } from 'react';
 import { checkSpelling } from '@/utils/spellChecker';
 import { checkGrammar } from '@/utils/grammarChecker';
 
-interface SentenceAnalysis {
+interface TextAnalysis {
   original: string;
   needsImprovement: boolean;
   suggestions: {
     formal: string;
     casual: string;
   };
-  position: number;
 }
 
 export const useSentenceAnalyzer = () => {
-  const [analyses, setAnalyses] = useState<Map<number, SentenceAnalysis>>(new Map());
+  const [analysis, setAnalysis] = useState<TextAnalysis | null>(null);
 
-  const generateSuggestions = useCallback((sentence: string) => {
+  const generateSuggestions = useCallback((text: string) => {
     // Apply spelling and grammar corrections first
-    let corrected = sentence;
+    let corrected = text;
     
-    // Basic spelling corrections
-    const spellingSuggestions = checkSpelling(sentence, null, false);
+    // Process text for spelling corrections
+    const spellingSuggestions = checkSpelling(text, null, false);
     if (spellingSuggestions.length > 0) {
       corrected = spellingSuggestions[0].text;
     }
     
-    // Basic grammar corrections
+    // Process text for grammar corrections
     const grammarSuggestions = checkGrammar(corrected);
     if (grammarSuggestions.length > 0) {
       corrected = grammarSuggestions[0].text;
     }
     
-    // Generate formal version
-    const formal = makeFormal(corrected);
+    // Generate formal version - taking into account the whole context
+    const formal = makeFormalText(corrected);
     
-    // Generate casual version
-    const casual = makeCasual(corrected);
+    // Generate casual version - taking into account the whole context
+    const casual = makeCasualText(corrected);
     
     return { formal, casual };
   }, []);
 
-  const makeFormal = (text: string): string => {
+  const makeFormalText = (text: string): string => {
     let formal = text;
     
-    // Expand contractions
+    // Expand contractions throughout the text
     formal = formal.replace(/can't/gi, 'cannot');
     formal = formal.replace(/won't/gi, 'will not');
     formal = formal.replace(/n't/gi, ' not');
@@ -53,7 +52,7 @@ export const useSentenceAnalyzer = () => {
     formal = formal.replace(/'ll/gi, ' will');
     formal = formal.replace(/'d/gi, ' would');
     
-    // Remove informal words
+    // Replace informal words and phrases
     formal = formal.replace(/\b(kinda|sorta|gonna|wanna)\b/gi, (match) => {
       switch (match.toLowerCase()) {
         case 'kinda': return 'somewhat';
@@ -64,21 +63,27 @@ export const useSentenceAnalyzer = () => {
       }
     });
     
-    // Ensure proper capitalization
-    formal = formal.charAt(0).toUpperCase() + formal.slice(1);
+    // Improve sentence structure and flow
+    formal = formal.replace(/\bso\b/gi, 'therefore');
+    formal = formal.replace(/\bbut\b/gi, 'however');
+    formal = formal.replace(/\balso\b/gi, 'furthermore');
     
-    // Ensure it ends with proper punctuation
-    if (!/[.!?]$/.test(formal.trim())) {
-      formal = formal.trim() + '.';
+    // Ensure proper capitalization for sentences
+    formal = formal.replace(/(^|\. )([a-z])/g, (match, p1, p2) => p1 + p2.toUpperCase());
+    
+    // Ensure proper punctuation
+    formal = formal.trim();
+    if (!/[.!?]$/.test(formal)) {
+      formal += '.';
     }
     
     return formal;
   };
 
-  const makeCasual = (text: string): string => {
+  const makeCasualText = (text: string): string => {
     let casual = text;
     
-    // Add contractions
+    // Add contractions for more conversational tone
     casual = casual.replace(/\bwill not\b/gi, "won't");
     casual = casual.replace(/\bcannot\b/gi, "can't");
     casual = casual.replace(/\bdo not\b/gi, "don't");
@@ -98,54 +103,48 @@ export const useSentenceAnalyzer = () => {
     casual = casual.replace(/\bhowever\b/gi, 'but');
     casual = casual.replace(/\btherefore\b/gi, 'so');
     casual = casual.replace(/\bfurthermore\b/gi, 'also');
+    casual = casual.replace(/\bsomewhat\b/gi, 'kinda');
+    
+    // Use more casual phrases
+    casual = casual.replace(/\bin order to\b/gi, 'to');
+    casual = casual.replace(/\bdue to the fact that\b/gi, 'because');
+    casual = casual.replace(/\bat this point in time\b/gi, 'now');
     
     return casual;
   };
 
-  const analyzeSentences = useCallback((text: string) => {
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    const newAnalyses = new Map<number, SentenceAnalysis>();
+  const analyzeWholeText = useCallback((text: string) => {
+    const trimmedText = text.trim();
     
-    let currentPosition = 0;
-    
-    sentences.forEach((sentence, index) => {
-      const trimmedSentence = sentence.trim();
-      if (trimmedSentence.length > 5) { // Only analyze meaningful sentences
+    if (trimmedText.length > 10) {
+      // Check if text needs improvement
+      const hasSpellingIssues = checkSpelling(trimmedText, null, false).length > 0;
+      const hasGrammarIssues = checkGrammar(trimmedText).length > 0;
+      const needsImprovement = hasSpellingIssues || hasGrammarIssues || trimmedText.length > 20;
+      
+      if (needsImprovement) {
+        const suggestions = generateSuggestions(trimmedText);
         
-        // Check if sentence needs improvement (has spelling/grammar issues or could be polished)
-        const hasSpellingIssues = checkSpelling(trimmedSentence, null, false).length > 0;
-        const hasGrammarIssues = checkGrammar(trimmedSentence).length > 0;
-        const needsImprovement = hasSpellingIssues || hasGrammarIssues || trimmedSentence.length > 10;
-        
-        if (needsImprovement) {
-          const suggestions = generateSuggestions(trimmedSentence);
-          
-          // Find the position in the original text
-          const sentenceIndex = text.indexOf(trimmedSentence, currentPosition);
-          const endPosition = sentenceIndex + trimmedSentence.length;
-          
-          newAnalyses.set(index, {
-            original: trimmedSentence,
-            needsImprovement: true,
-            suggestions,
-            position: endPosition
-          });
-        }
-        
-        currentPosition = text.indexOf(trimmedSentence, currentPosition) + trimmedSentence.length;
+        setAnalysis({
+          original: trimmedText,
+          needsImprovement: true,
+          suggestions
+        });
+      } else {
+        setAnalysis(null);
       }
-    });
-    
-    setAnalyses(newAnalyses);
+    } else {
+      setAnalysis(null);
+    }
   }, [generateSuggestions]);
 
   const clearAnalyses = useCallback(() => {
-    setAnalyses(new Map());
+    setAnalysis(null);
   }, []);
 
   return {
-    analyses,
-    analyzeSentences,
+    analysis,
+    analyzeWholeText,
     clearAnalyses
   };
 };

@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface SuggestionOptions {
   formal: string;
@@ -19,48 +19,59 @@ interface InlineSuggestionsProps {
 export const InlineSuggestions = ({ suggestions, onSelect, onDismiss, position }: InlineSuggestionsProps) => {
   return (
     <Card 
-      className="absolute z-50 p-3 shadow-lg border bg-background min-w-[300px]"
+      className="fixed z-50 shadow-xl border bg-background max-w-md"
       style={{ 
         top: position.top, 
-        left: position.left,
-        transform: 'translateY(-100%)'
+        left: Math.max(10, Math.min(position.left, window.innerWidth - 400))
       }}
     >
-      <div className="space-y-2">
+      <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">Polish your sentence</span>
+          <span className="text-sm font-medium text-muted-foreground">Polish your text</span>
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={onDismiss}
-            className="h-6 w-6 p-0"
+            className="h-6 w-6 p-0 hover:bg-muted"
           >
             <X className="h-3 w-3" />
           </Button>
         </div>
         
-        <div className="space-y-2">
-          <Button
-            variant="outline"
-            className="w-full text-left justify-start p-2 h-auto"
-            onClick={() => onSelect(suggestions.formal)}
-          >
-            <div>
-              <div className="font-medium text-xs text-blue-600 mb-1">✨ Formal</div>
-              <div className="text-sm">{suggestions.formal}</div>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-blue-600 flex items-center gap-1">
+              ✨ Formal Style
             </div>
-          </Button>
+            <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
+              {suggestions.formal}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => onSelect(suggestions.formal)}
+            >
+              Use Formal Version
+            </Button>
+          </div>
           
-          <Button
-            variant="outline"
-            className="w-full text-left justify-start p-2 h-auto"
-            onClick={() => onSelect(suggestions.casual)}
-          >
-            <div>
-              <div className="font-medium text-xs text-green-600 mb-1">💬 Casual</div>
-              <div className="text-sm">{suggestions.casual}</div>
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-green-600 flex items-center gap-1">
+              💬 Casual Style
             </div>
-          </Button>
+            <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
+              {suggestions.casual}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => onSelect(suggestions.casual)}
+            >
+              Use Casual Version
+            </Button>
+          </div>
         </div>
       </div>
     </Card>
