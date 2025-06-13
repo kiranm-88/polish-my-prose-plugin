@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useSuggestions } from '@/hooks/useSuggestions';
-import { Zap, Wand2, CheckCircle } from 'lucide-react';
+import { Zap, Wand2, CheckCircle, Shield, AlertTriangle } from 'lucide-react';
 
 interface SuggestionsListProps {
   onApplySuggestion: (suggestion: any) => void;
@@ -19,12 +19,42 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600">Analyzing your text...</span>
+            <span className="ml-3 text-gray-600">Analyzing and verifying suggestions...</span>
           </div>
         </CardContent>
       </Card>
     );
   }
+
+  const getConfidenceIcon = (suggestion: any) => {
+    if (suggestion.verified) {
+      return <Shield className="h-3 w-3 text-green-600" />;
+    }
+    if (suggestion.confidence === 'high') {
+      return <CheckCircle className="h-3 w-3 text-blue-600" />;
+    }
+    if (suggestion.confidence === 'low') {
+      return <AlertTriangle className="h-3 w-3 text-orange-600" />;
+    }
+    return null;
+  };
+
+  const getConfidenceBadge = (suggestion: any) => {
+    if (suggestion.verified) {
+      return <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">AI Verified</Badge>;
+    }
+    if (suggestion.confidence) {
+      const colors = {
+        high: 'bg-blue-50 text-blue-700 border-blue-200',
+        medium: 'bg-gray-50 text-gray-700 border-gray-200',
+        low: 'bg-orange-50 text-orange-700 border-orange-200'
+      };
+      return <Badge variant="outline" className={`text-xs ${colors[suggestion.confidence]}`}>
+        {suggestion.confidence} confidence
+      </Badge>;
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-4">
@@ -33,8 +63,8 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Zap className="h-5 w-5 text-blue-500" />
-              Quick Fixes
-              <Badge variant="secondary" className="text-xs">Local Processing</Badge>
+              Smart Corrections
+              <Badge variant="secondary" className="text-xs">AI Enhanced</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -44,7 +74,11 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="outline" className="text-xs">{suggestion.type}</Badge>
-                      <p className="font-medium text-sm text-blue-800">{suggestion.explanation}</p>
+                      {getConfidenceBadge(suggestion)}
+                      <div className="flex items-center gap-1">
+                        {getConfidenceIcon(suggestion)}
+                        <p className="font-medium text-sm text-blue-800">{suggestion.explanation}</p>
+                      </div>
                     </div>
                     
                     {suggestion.context && (

@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSuggestions } from './useSuggestions';
+import { useOpenAIVerifier } from './useOpenAIVerifier';
 import { toast } from '@/hooks/use-toast';
 import { checkGrammar } from '@/utils/grammarChecker';
 import { checkSpelling } from '@/utils/spellChecker';
@@ -11,6 +12,7 @@ export const useLocalProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpellCheckerReady, setIsSpellCheckerReady] = useState(false);
   const { setLocalSuggestions } = useSuggestions();
+  const { verifyAndEnhanceSuggestions, isVerifying } = useOpenAIVerifier();
 
   useEffect(() => {
     const loadSpellChecker = async () => {
@@ -86,7 +88,15 @@ export const useLocalProcessor = () => {
         });
       }
       
-      setLocalSuggestions(suggestions);
+      // Verify and enhance suggestions with OpenAI
+      const verifiedSuggestions = await verifyAndEnhanceSuggestions(text, suggestions);
+      
+      // Filter out low confidence suggestions if we have verified ones
+      const finalSuggestions = verifiedSuggestions.filter(s => 
+        s.verified || s.confidence !== 'low'
+      );
+      
+      setLocalSuggestions(finalSuggestions);
     } catch (error) {
       console.error('Local processing error:', error);
     } finally {
@@ -99,9 +109,10 @@ export const useLocalProcessor = () => {
     
     // Show success toast with specific correction details
     if (suggestion.originalWord && suggestion.suggestion) {
+      const verificationNote = suggestion.verified ? ' (AI verified)' : '';
       toast({
         title: "Correction Applied",
-        description: `Changed "${suggestion.originalWord}" to "${suggestion.suggestion}"`,
+        description: `Changed "${suggestion.originalWord}" to "${suggestion.suggestion}"${verificationNote}`,
       });
     } else {
       toast({
@@ -115,7 +126,7 @@ export const useLocalProcessor = () => {
 
   return { 
     processText, 
-    isProcessing, 
+    isProcessing: isProcessing || isVerifying, 
     isSpellCheckerReady,
     applySuggestion
   };
