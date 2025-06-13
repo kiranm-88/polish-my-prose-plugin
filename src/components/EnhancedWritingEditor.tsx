@@ -42,44 +42,21 @@ export const EnhancedWritingEditor = () => {
     clearAnalyses();
     clearSuggestions();
     setShowErrorSuggestions(false);
+    setShowSuggestion(false);
   }, [clearAnalyses, clearSuggestions]);
-
-  const handleTextSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    try {
-      const target = e.target as HTMLTextAreaElement;
-      if (!target) return;
-      
-      const selected = target.value.substring(target.selectionStart, target.selectionEnd);
-      setSelectedText(selected);
-      setSelectionStart(target.selectionStart);
-      setSelectionEnd(target.selectionEnd);
-      
-      if (selected.trim().length > 2) {
-        setShowErrorSuggestions(true);
-        processLocal(selected);
-        if (hasApiKey) {
-          processLLM(selected);
-        }
-      } else {
-        clearSuggestions();
-        setShowErrorSuggestions(false);
-      }
-    } catch (error) {
-      console.error('Text selection error:', error);
-    }
-  }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
 
   const handleSparkleClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
     
-    if (showSuggestion) {
-      setShowSuggestion(false);
+    if (text.trim().length <= 10) {
       return;
     }
     
-    // Generate analysis immediately when sparkle is clicked
-    if (text.trim().length > 10) {
-      analyzeWholeText(text);
+    // Process the whole text for both style suggestions and error corrections
+    analyzeWholeText(text);
+    processLocal(text);
+    if (hasApiKey) {
+      processLLM(text);
     }
     
     // Calculate position for the suggestion popup relative to the sparkle button
@@ -94,7 +71,8 @@ export const EnhancedWritingEditor = () => {
     }
     
     setShowSuggestion(true);
-  }, [showSuggestion, text, analyzeWholeText]);
+    setShowErrorSuggestions(true);
+  }, [text, analyzeWholeText, processLocal, processLLM, hasApiKey]);
 
   const handleSuggestionSelect = useCallback((selectedText: string) => {
     setText(selectedText);
@@ -132,7 +110,7 @@ export const EnhancedWritingEditor = () => {
     setShowErrorSuggestions(false);
   };
 
-  // Show sparkle button when there's enough text, regardless of analysis state
+  // Show sparkle button when there's enough text
   const showSparkleButton = text.trim().length > 10;
 
   return (
@@ -149,7 +127,7 @@ export const EnhancedWritingEditor = () => {
                   size="sm"
                   onClick={handleSparkleClick}
                   className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                  title="Polish your text - get formal/casual variations"
+                  title="Get writing suggestions - corrections and style variations"
                 >
                   <Sparkles className="h-4 w-4" />
                 </Button>
@@ -178,23 +156,16 @@ export const EnhancedWritingEditor = () => {
               ref={textareaRef}
               value={text}
               onChange={handleTextChange}
-              onSelect={handleTextSelect}
-              placeholder="Start typing your text here... Select any text to get instant grammar and spelling suggestions!"
+              placeholder="Start typing your text here... Click the ✨ icon to get writing suggestions!"
               className="min-h-[300px] text-lg leading-relaxed"
               spellCheck="false"
             />
           </div>
           
-          {selectedText && (
-            <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
-              ✨ Selected: "{selectedText}" - Smart suggestions will appear below
-            </div>
-          )}
-          
           <div className="text-sm text-muted-foreground">
             💡 <strong>How to use:</strong>
-            <br />• Select any text to get instant grammar and spelling corrections
-            <br />• Click the ✨ icon to get formal/casual style variations for your entire text
+            <br />• Type your text in the editor above
+            <br />• Click the ✨ icon to get grammar corrections and style variations (formal/casual)
           </div>
 
           {!hasApiKey && (
