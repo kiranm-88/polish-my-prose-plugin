@@ -5,7 +5,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InlineSuggestions } from './InlineSuggestions';
-import { SuggestionsList } from './SuggestionsList';
 import { useSentenceAnalyzer } from '@/hooks/useSentenceAnalyzer';
 import { useLocalProcessor } from '@/hooks/useLocalProcessor';
 import { useLLMProcessor } from '@/hooks/useLLMProcessor';
@@ -18,7 +17,6 @@ export const EnhancedWritingEditor = () => {
   const [selectionStart, setSelectionStart] = useState(0);
   const [selectionEnd, setSelectionEnd] = useState(0);
   const [showSuggestion, setShowSuggestion] = useState(false);
-  const [showErrorSuggestions, setShowErrorSuggestions] = useState(false);
   const [suggestionPosition, setSuggestionPosition] = useState({ top: 0, left: 0 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,7 +30,7 @@ export const EnhancedWritingEditor = () => {
     applySuggestion: applyLocalSuggestion
   } = useLocalProcessor();
   const { processText: processLLM, isProcessing: isLLMProcessing, hasApiKey } = useLLMProcessor();
-  const { clearSuggestions } = useSuggestions();
+  const { localSuggestions, clearSuggestions } = useSuggestions();
 
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
@@ -41,7 +39,6 @@ export const EnhancedWritingEditor = () => {
     // Clear previous analyses when text changes
     clearAnalyses();
     clearSuggestions();
-    setShowErrorSuggestions(false);
     setShowSuggestion(false);
   }, [clearAnalyses, clearSuggestions]);
 
@@ -71,7 +68,6 @@ export const EnhancedWritingEditor = () => {
     }
     
     setShowSuggestion(true);
-    setShowErrorSuggestions(true);
   }, [text, analyzeWholeText, processLocal, processLLM, hasApiKey]);
 
   const handleSuggestionSelect = useCallback((selectedText: string) => {
@@ -82,33 +78,6 @@ export const EnhancedWritingEditor = () => {
   const handleSuggestionDismiss = useCallback(() => {
     setShowSuggestion(false);
   }, []);
-
-  const applySuggestion = (suggestion: any) => {
-    if (selectedText && selectionStart !== selectionEnd) {
-      const correctedText = applyLocalSuggestion(selectedText, suggestion);
-      const newText = text.substring(0, selectionStart) + correctedText + text.substring(selectionEnd);
-      setText(newText);
-      
-      const newSelectionEnd = selectionStart + correctedText.length;
-      setSelectionStart(selectionStart);
-      setSelectionEnd(newSelectionEnd);
-      setSelectedText(correctedText);
-      
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-          textareaRef.current.setSelectionRange(selectionStart, newSelectionEnd);
-        }
-      }, 0);
-    } else {
-      const correctedText = applyLocalSuggestion(text, suggestion);
-      setText(correctedText);
-      setSelectedText('');
-    }
-    
-    clearSuggestions();
-    setShowErrorSuggestions(false);
-  };
 
   // Show sparkle button when there's enough text
   const showSparkleButton = text.trim().length > 10;
@@ -165,7 +134,7 @@ export const EnhancedWritingEditor = () => {
           <div className="text-sm text-muted-foreground">
             💡 <strong>How to use:</strong>
             <br />• Type your text in the editor above
-            <br />• Click the ✨ icon to get grammar corrections and style variations (formal/casual)
+            <br />• Click the ✨ icon to get grammar corrections, spell check, and style variations (formal/casual)
           </div>
 
           {!hasApiKey && (
@@ -186,17 +155,16 @@ export const EnhancedWritingEditor = () => {
         </CardContent>
       </Card>
 
-      {showSuggestion && analysis && (
+      {showSuggestion && (analysis || localSuggestions.length > 0) && (
         <InlineSuggestions
-          suggestions={analysis.suggestions}
+          suggestions={analysis?.suggestions}
+          localSuggestions={localSuggestions}
           onSelect={handleSuggestionSelect}
           onDismiss={handleSuggestionDismiss}
+          onApplyCorrection={applyLocalSuggestion}
           position={suggestionPosition}
+          currentText={text}
         />
-      )}
-
-      {showErrorSuggestions && (
-        <SuggestionsList onApplySuggestion={applySuggestion} />
       )}
     </div>
   );
