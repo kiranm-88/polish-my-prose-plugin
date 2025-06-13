@@ -61,6 +61,9 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
     suggestion.type !== 'Error' && suggestion.text && suggestion.explanation
   );
 
+  // Check if we have any suggestions at all
+  const hasAnySuggestions = localSuggestions.length > 0 || validLLMSuggestions.length > 0;
+
   return (
     <div className="space-y-4">
       {localSuggestions.length > 0 && (
@@ -160,7 +163,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
         </Card>
       )}
 
-      {localSuggestions.length === 0 && validLLMSuggestions.length === 0 && (
+      {!hasAnySuggestions && (
         <Card>
           <CardContent className="p-6 text-center">
             <div className="text-gray-500">
