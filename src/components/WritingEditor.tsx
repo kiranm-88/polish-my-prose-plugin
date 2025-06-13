@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,30 +31,31 @@ export const WritingEditor = () => {
   };
 
   const handleTextSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    const target = e.target as HTMLTextAreaElement;
-    const selected = target.value.substring(target.selectionStart, target.selectionEnd);
-    setSelectedText(selected);
-    setSelectionStart(target.selectionStart);
-    setSelectionEnd(target.selectionEnd);
-    
-    // Auto-analyze selection if text is selected and longer than 2 characters
-    if (selected.trim().length > 2) {
-      setShowSuggestions(true);
-      // Use setTimeout to avoid blocking the UI
-      setTimeout(async () => {
-        try {
-          await processLocal(selected);
+    try {
+      const target = e.target as HTMLTextAreaElement;
+      const selected = target.value.substring(target.selectionStart, target.selectionEnd);
+      setSelectedText(selected);
+      setSelectionStart(target.selectionStart);
+      setSelectionEnd(target.selectionEnd);
+      
+      // Auto-analyze selection if text is selected and longer than 2 characters
+      if (selected.trim().length > 2) {
+        setShowSuggestions(true);
+        // Use requestAnimationFrame to avoid blocking
+        requestAnimationFrame(() => {
+          processLocal(selected).catch(() => {});
           if (hasApiKey) {
-            await processLLM(selected);
+            processLLM(selected).catch(() => {});
           }
-        } catch (error) {
-          // Silently handle errors
-        }
-      }, 100);
-    } else {
-      // Clear suggestions if no meaningful selection
-      clearSuggestions();
-      setShowSuggestions(false);
+        });
+      } else {
+        // Clear suggestions if no meaningful selection
+        clearSuggestions();
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      // Prevent errors from bubbling up
+      console.log('Selection error handled');
     }
   }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
 
@@ -63,20 +63,13 @@ export const WritingEditor = () => {
     if (!text.trim()) return;
     setShowSuggestions(true);
     
-    // Use setTimeout to avoid blocking the UI
-    setTimeout(async () => {
-      try {
-        // Always run local processing
-        await processLocal(text);
-        
-        // Run LLM processing if API key is available
-        if (hasApiKey) {
-          await processLLM(text);
-        }
-      } catch (error) {
-        // Silently handle errors
+    // Use requestAnimationFrame to avoid blocking
+    requestAnimationFrame(() => {
+      processLocal(text).catch(() => {});
+      if (hasApiKey) {
+        processLLM(text).catch(() => {});
       }
-    }, 100);
+    });
   }, [text, processLocal, processLLM, hasApiKey]);
 
   const applySuggestion = (suggestion: any) => {
@@ -138,12 +131,17 @@ export const WritingEditor = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
+            id="writing-textarea"
+            name="writing-textarea"
             ref={textareaRef}
             value={text}
             onChange={handleTextChange}
             onSelect={handleTextSelect}
             placeholder="Start typing or paste your text here..."
             className="min-h-[300px] text-lg leading-relaxed"
+            aria-label="Writing editor"
+            autoComplete="off"
+            spellCheck="false"
           />
           
           {selectedText && (
