@@ -25,7 +25,15 @@ export const useOpenAIVerifier = () => {
   ): Promise<VerifiedSuggestion[]> => {
     const apiKey = localStorage.getItem('writing-assistant-api-key');
     
+    console.log('🔍 OpenAI Verifier Debug:');
+    console.log('- API Key exists:', !!apiKey);
+    console.log('- API Key length:', apiKey?.length || 0);
+    console.log('- Suggestions count:', suggestions.length);
+    console.log('- Original text:', originalText);
+    console.log('- Raw suggestions:', suggestions);
+    
     if (!apiKey || suggestions.length === 0) {
+      console.log('❌ Skipping OpenAI verification - no API key or no suggestions');
       // Return original suggestions with default verification status
       return suggestions.map(s => ({
         ...s,
@@ -35,20 +43,15 @@ export const useOpenAIVerifier = () => {
     }
 
     setIsVerifying(true);
+    console.log('🚀 Starting OpenAI verification...');
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4.1-2025-04-14',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a writing assistant that verifies and enhances grammar and spelling suggestions. 
+      const requestBody = {
+        model: 'gpt-4.1-2025-04-14',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a writing assistant that verifies and enhances grammar and spelling suggestions. 
 
 Your task is to:
 1. Verify if each suggestion is correct and helpful
@@ -68,39 +71,70 @@ Respond with a JSON array of verified suggestions. Each suggestion should have:
 - verified: boolean
 
 Only include suggestions that are genuinely helpful and correct.`
-            },
-            {
-              role: 'user',
-              content: `Original text: "${originalText}"
+          },
+          {
+            role: 'user',
+            content: `Original text: "${originalText}"
 
 Suggestions to verify:
 ${JSON.stringify(suggestions, null, 2)}
 
 Please verify these suggestions and enhance them. Return only valid, helpful suggestions in JSON format.`
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 2000,
-        }),
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+      };
+
+      console.log('📤 Sending request to OpenAI:', requestBody);
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('📥 OpenAI Response status:', response.status);
+      console.log('📥 OpenAI Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ OpenAI API error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('✅ OpenAI Response data:', data);
+      
       const content = data.choices[0]?.message?.content;
+      console.log('📝 OpenAI Response content:', content);
 
       if (!content) {
+        console.error('❌ No content in OpenAI response');
         throw new Error('No response from OpenAI');
       }
 
       // Try to parse JSON response
       try {
         const verifiedSuggestions = JSON.parse(content);
-        return Array.isArray(verifiedSuggestions) ? verifiedSuggestions : [];
+        console.log('✅ Parsed verified suggestions:', verifiedSuggestions);
+        
+        if (!Array.isArray(verifiedSuggestions)) {
+          console.error('❌ OpenAI response is not an array:', verifiedSuggestions);
+          throw new Error('Invalid response format from OpenAI');
+        }
+        
+        return verifiedSuggestions;
       } catch (parseError) {
-        console.error('Failed to parse OpenAI response:', parseError);
+        console.error('❌ Failed to parse OpenAI response:', parseError);
+        console.error('❌ Raw content that failed to parse:', content);
         // Fallback to original suggestions
         return suggestions.map(s => ({
           ...s,
@@ -110,7 +144,7 @@ Please verify these suggestions and enhance them. Return only valid, helpful sug
       }
 
     } catch (error) {
-      console.error('OpenAI verification error:', error);
+      console.error('❌ OpenAI verification error:', error);
       // Fallback to original suggestions with lower confidence
       return suggestions.map(s => ({
         ...s,
@@ -119,6 +153,7 @@ Please verify these suggestions and enhance them. Return only valid, helpful sug
       }));
     } finally {
       setIsVerifying(false);
+      console.log('🏁 OpenAI verification complete');
     }
   };
 
