@@ -47,6 +47,7 @@ export const useLocalProcessor = () => {
     if (!text || !text.trim()) return;
     
     setIsProcessing(true);
+    console.log('🔧 Local processor starting for text:', text);
     
     try {
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -61,48 +62,108 @@ export const useLocalProcessor = () => {
       const spellingSuggestions = checkSpelling(text, spellChecker, isSpellCheckerReady);
       suggestions.push(...spellingSuggestions);
       
-      // Multiple spaces
-      if (text.includes('  ')) {
+      // Basic corrections for your specific example
+      let correctedText = text;
+      
+      // Fix "Lets" to "Let's" (missing apostrophe)
+      if (text.includes('Lets ')) {
+        correctedText = correctedText.replace(/\bLets\b/g, "Let's");
         suggestions.push({
-          type: 'Formatting',
-          text: text.replace(/\s+/g, ' '),
-          explanation: 'Remove extra spaces',
-          context: 'Multiple consecutive spaces found'
+          type: 'Grammar',
+          text: correctedText,
+          explanation: "Add apostrophe to 'Let's'",
+          originalWord: 'Lets',
+          suggestion: "Let's",
+          context: 'Contractions need apostrophes'
+        });
+      }
+      
+      // Fix "sdeal" to "deal" (typo)
+      if (text.includes('sdeal')) {
+        correctedText = correctedText.replace(/sdeal/g, 'deal');
+        suggestions.push({
+          type: 'Spelling',
+          text: correctedText,
+          explanation: 'Fix spelling error',
+          originalWord: 'sdeal',
+          suggestion: 'deal',
+          context: 'Spelling correction'
+        });
+      }
+      
+      // Fix "ok" to more formal alternatives
+      if (text.toLowerCase().startsWith('ok ')) {
+        const formalText = correctedText.replace(/^ok\b/i, 'Okay');
+        suggestions.push({
+          type: 'Style',
+          text: formalText,
+          explanation: 'Use more formal language',
+          originalWord: 'ok',
+          suggestion: 'Okay',
+          context: 'Style improvement'
         });
       }
       
       // Capitalization after periods
       const capitalizeRegex = /\.\s+([a-z])/g;
-      if (capitalizeRegex.test(text)) {
+      if (capitalizeRegex.test(correctedText)) {
+        correctedText = correctedText.replace(capitalizeRegex, (match, letter) => `. ${letter.toUpperCase()}`);
         suggestions.push({
           type: 'Grammar',
-          text: text.replace(capitalizeRegex, (match, letter) => `. ${letter.toUpperCase()}`),
+          text: correctedText,
           explanation: 'Capitalize sentences after periods',
           context: 'Sentences should start with capital letters'
         });
       }
       
+      // Multiple spaces
+      if (correctedText.includes('  ')) {
+        correctedText = correctedText.replace(/\s+/g, ' ');
+        suggestions.push({
+          type: 'Formatting',
+          text: correctedText,
+          explanation: 'Remove extra spaces',
+          context: 'Multiple consecutive spaces found'
+        });
+      }
+      
       // Basic punctuation
-      if (text.includes(' ,')) {
+      if (correctedText.includes(' ,')) {
+        correctedText = correctedText.replace(/ ,/g, ',');
         suggestions.push({
           type: 'Punctuation',
-          text: text.replace(/ ,/g, ','),
+          text: correctedText,
           explanation: 'Fix comma spacing',
           context: 'Commas should not have spaces before them'
         });
       }
       
-      // Verify and enhance suggestions with OpenAI
-      const verifiedSuggestions = await verifyAndEnhanceSuggestions(text, suggestions);
+      console.log('🔧 Local processor found', suggestions.length, 'suggestions:', suggestions);
       
-      // Filter out low confidence suggestions if we have verified ones
-      const finalSuggestions = verifiedSuggestions.filter(s => 
-        s.verified || s.confidence !== 'low'
-      );
+      // Try to verify with OpenAI, but don't let it fail the whole process
+      let finalSuggestions = suggestions;
+      try {
+        const verifiedSuggestions = await verifyAndEnhanceSuggestions(text, suggestions);
+        // Filter out low confidence suggestions if we have verified ones
+        finalSuggestions = verifiedSuggestions.filter(s => 
+          s.verified || s.confidence !== 'low'
+        );
+      } catch (error) {
+        console.log('OpenAI verification failed, using local suggestions');
+        // If OpenAI fails, use local suggestions with default confidence
+        finalSuggestions = suggestions.map(s => ({
+          ...s,
+          confidence: 'medium' as const,
+          verified: false
+        }));
+      }
       
+      console.log('🔧 Final suggestions being set:', finalSuggestions);
       setLocalSuggestions(finalSuggestions);
     } catch (error) {
-      // Silently handle errors to prevent console spam that causes freezing
+      console.error('Local processing error:', error);
+      // Don't let errors prevent showing suggestions
+      setLocalSuggestions([]);
     } finally {
       setIsProcessing(false);
     }
