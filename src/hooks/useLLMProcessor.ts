@@ -34,49 +34,39 @@ export const useLLMProcessor = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a professional writing assistant. Analyze the provided text for errors and improvements.
+            content: `You are a writing assistant. Your job is to find and fix errors in text.
 
-CRITICAL: You must find and fix ALL errors in the text. Look for:
+Find these types of errors:
 - Missing punctuation (commas, apostrophes, periods)
-- Spelling errors and typos
-- Grammar mistakes
-- Regional spelling inconsistencies (use American English)
-- Capitalization errors
-- Word choice improvements
+- Spelling mistakes and typos
+- Grammar errors
+- Use American English spelling
 
-For the example "Acceptable let's try again, Lets catch up at the end of the week and finalise the deal." you should find:
-1. Missing comma after "Acceptable"
-2. Missing apostrophe in "Lets" 
-3. British spelling "finalise" should be "finalize"
+IMPORTANT: Only suggest corrections if you find actual errors. If the text is already correct, return an empty array [].
 
-Respond with a JSON array. Each suggestion must have:
-- type: string (one of: "Grammar", "Spelling", "Punctuation", "Style", "Clarity")
-- text: string (the CORRECTED version of the entire text)
-- explanation: string (specific explanation of what was wrong)
+Respond ONLY with a JSON array. Each correction should have:
+{
+  "type": "Grammar" | "Spelling" | "Punctuation",
+  "text": "the corrected text",
+  "explanation": "what was fixed"
+}
 
-Example:
-[
-  {
-    "type": "Punctuation",
-    "text": "Acceptable, let's try again. Let's catch up at the end of the week and finalize the deal.",
-    "explanation": "Added missing comma after 'Acceptable', fixed apostrophe in 'Let's', and changed British 'finalise' to American 'finalize'"
-  }
-]
-
-IMPORTANT: Always return the complete corrected text, not just the changed parts.`
+Examples:
+- "lets go" → "let's go" (missing apostrophe)
+- "finalise" → "finalize" (American spelling)
+- "Hello,how are you" → "Hello, how are you" (missing space)`
           },
           {
             role: 'user',
-            content: `Find and fix ALL errors in this text: "${text}"`
+            content: `Fix any errors in this text: "${text}"`
           }
         ],
         temperature: 0.1,
-        max_tokens: 1000,
+        max_tokens: 800,
       };
 
-      console.log('=== OpenAI Request ===');
-      console.log('Text to analyze:', text);
-      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('🔍 Analyzing text:', text);
+      console.log('📤 Sending to OpenAI...');
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -89,19 +79,19 @@ IMPORTANT: Always return the complete corrected text, not just the changed parts
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('OpenAI API error:', response.status, errorText);
+        console.error('❌ OpenAI API error:', response.status, errorText);
         throw new Error(`OpenAI API error: ${response.status}`);
       }
 
       const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+      const content = data.choices[0]?.message?.content?.trim();
 
-      console.log('=== OpenAI Response ===');
-      console.log('Raw response:', content);
-      console.log('Full API response:', JSON.stringify(data, null, 2));
+      console.log('📥 OpenAI response:', content);
 
       if (!content) {
-        throw new Error('No response from OpenAI');
+        console.log('⚠️ Empty response from OpenAI');
+        setLLMSuggestions([]);
+        return;
       }
 
       // Try to parse JSON response
@@ -109,48 +99,41 @@ IMPORTANT: Always return the complete corrected text, not just the changed parts
         const suggestions = JSON.parse(content);
         
         if (!Array.isArray(suggestions)) {
-          console.error('OpenAI returned non-array response:', suggestions);
-          throw new Error('Invalid response format from OpenAI');
+          console.error('❌ Response is not an array:', suggestions);
+          setLLMSuggestions([]);
+          return;
         }
         
-        console.log('=== Suggestion Analysis ===');
-        console.log('Total suggestions received:', suggestions.length);
+        console.log(`✅ Parsed ${suggestions.length} suggestions`);
         
-        // Filter out suggestions that don't actually change the text
+        // Validate each suggestion
         const validSuggestions = suggestions.filter((suggestion, index) => {
-          console.log(`Suggestion ${index + 1}:`, suggestion);
-          console.log(`Original text: "${text.trim()}"`);
-          console.log(`Suggested text: "${suggestion.text?.trim()}"`);
-          console.log(`Text changed: ${suggestion.text?.trim() !== text.trim()}`);
+          const isValid = suggestion.text && 
+                         suggestion.explanation && 
+                         suggestion.text.trim() !== text.trim();
           
-          if (!suggestion.text || !suggestion.explanation) {
-            console.log(`Suggestion ${index + 1} rejected: Missing text or explanation`);
-            return false;
-          }
+          console.log(`Suggestion ${index + 1}:`, {
+            valid: isValid,
+            hasText: !!suggestion.text,
+            hasExplanation: !!suggestion.explanation,
+            textChanged: suggestion.text?.trim() !== text.trim(),
+            suggestion
+          });
           
-          // Only include if the suggestion actually changes something
-          const textChanged = suggestion.text.trim() !== text.trim();
-          if (!textChanged) {
-            console.log(`Suggestion ${index + 1} rejected: No text changes`);
-          }
-          return textChanged;
+          return isValid;
         });
         
-        console.log('=== Final Results ===');
-        console.log('Valid suggestions after filtering:', validSuggestions.length);
-        console.log('Valid suggestions:', validSuggestions);
-        
+        console.log(`🎯 Final valid suggestions: ${validSuggestions.length}`);
         setLLMSuggestions(validSuggestions);
+        
       } catch (parseError) {
-        console.error('Failed to parse OpenAI response as JSON:', content);
-        console.error('Parse error:', parseError);
-        // If it's not valid JSON, don't create fallback suggestions
+        console.error('❌ JSON parse error:', parseError);
+        console.error('Raw content that failed to parse:', content);
         setLLMSuggestions([]);
       }
 
     } catch (error) {
-      console.error('LLM processing error:', error);
-      // Provide user feedback about the error
+      console.error('💥 LLM processing error:', error);
       setLLMSuggestions([{
         type: 'Error',
         text: text,
