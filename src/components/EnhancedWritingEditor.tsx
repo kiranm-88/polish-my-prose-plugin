@@ -10,7 +10,7 @@ import { useSentenceAnalyzer } from '@/hooks/useSentenceAnalyzer';
 import { useLocalProcessor } from '@/hooks/useLocalProcessor';
 import { useLLMProcessor } from '@/hooks/useLLMProcessor';
 import { useSuggestions } from '@/hooks/useSuggestions';
-import { Sparkles, Zap, Wand2, CheckCircle } from 'lucide-react';
+import { Sparkles, Zap, Wand2 } from 'lucide-react';
 
 export const EnhancedWritingEditor = () => {
   const [text, setText] = useState('');
@@ -74,16 +74,6 @@ export const EnhancedWritingEditor = () => {
       console.error('Text selection error:', error);
     }
   }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
-
-  const analyzeFullText = useCallback(() => {
-    if (!text.trim()) return;
-    setShowErrorSuggestions(true);
-    
-    processLocal(text);
-    if (hasApiKey) {
-      processLLM(text);
-    }
-  }, [text, processLocal, processLLM, hasApiKey]);
 
   const handleSparkleClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -153,7 +143,7 @@ export const EnhancedWritingEditor = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Enhanced Writing Assistant</span>
+            <span>Writing Assistant</span>
             <div className="flex items-center gap-2">
               {analysis && (
                 <Button
@@ -162,13 +152,14 @@ export const EnhancedWritingEditor = () => {
                   size="sm"
                   onClick={handleSparkleClick}
                   className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                  title="Get style variations (formal/casual)"
                 >
                   <Sparkles className="h-4 w-4" />
                 </Button>
               )}
               <Badge variant="outline" className="gap-1">
                 <Zap className="h-3 w-3 text-blue-500" />
-                Local Processing
+                Smart Corrections
                 {isSpellCheckerReady ? (
                   <span className="text-green-600">✓</span>
                 ) : (
@@ -178,7 +169,7 @@ export const EnhancedWritingEditor = () => {
               {hasApiKey && (
                 <Badge variant="outline" className="gap-1">
                   <Wand2 className="h-3 w-3 text-purple-500" />
-                  AI-Powered
+                  AI-Enhanced
                 </Badge>
               )}
             </div>
@@ -191,7 +182,7 @@ export const EnhancedWritingEditor = () => {
               value={text}
               onChange={handleTextChange}
               onSelect={handleTextSelect}
-              placeholder="Start typing... Smart suggestions will appear when you have enough text!"
+              placeholder="Start typing your text here... Select any text to get instant grammar and spelling suggestions!"
               className="min-h-[300px] text-lg leading-relaxed"
               spellCheck="false"
             />
@@ -199,32 +190,20 @@ export const EnhancedWritingEditor = () => {
           
           {selectedText && (
             <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
-              💡 Selected: "{selectedText}" - Error corrections will appear below automatically
+              ✨ Selected: "{selectedText}" - Smart suggestions will appear below
             </div>
           )}
           
-          <div className="flex gap-3">
-            <Button 
-              onClick={analyzeFullText}
-              disabled={!text.trim() || isLocalProcessing || isLLMProcessing}
-              className="gap-2"
-              type="button"
-            >
-              <CheckCircle className="h-4 w-4" />
-              Check for Errors
-            </Button>
-          </div>
-          
           <div className="text-sm text-muted-foreground">
-            💡 <strong>Tips:</strong>
-            <br />• Click the ✨ icon for formal/casual style variations
-            <br />• Select text or click "Check for Errors" for grammar and spelling corrections
+            💡 <strong>How to use:</strong>
+            <br />• Select any text to get instant grammar and spelling corrections
+            <br />• Click the ✨ icon to get formal/casual style variations for your entire text
           </div>
 
           {!hasApiKey && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-800">
-                💡 Add your API key in Settings to unlock advanced AI-powered suggestions
+                💡 Add your OpenAI API key in Settings to unlock advanced AI-powered suggestions
               </p>
             </div>
           )}
