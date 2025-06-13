@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,31 +32,35 @@ export const WritingEditor = () => {
   };
 
   const handleTextSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    // Prevent any cross-site context issues
+    e.stopPropagation();
+    
     try {
       const target = e.target as HTMLTextAreaElement;
+      if (!target) return;
+      
       const selected = target.value.substring(target.selectionStart, target.selectionEnd);
       setSelectedText(selected);
       setSelectionStart(target.selectionStart);
       setSelectionEnd(target.selectionEnd);
       
-      // Auto-analyze selection if text is selected and longer than 2 characters
+      // Only process if we have meaningful selection
       if (selected.trim().length > 2) {
         setShowSuggestions(true);
-        // Use requestAnimationFrame to avoid blocking
-        requestAnimationFrame(() => {
+        
+        // Defer processing to avoid blocking
+        setTimeout(() => {
           processLocal(selected).catch(() => {});
           if (hasApiKey) {
             processLLM(selected).catch(() => {});
           }
-        });
+        }, 0);
       } else {
-        // Clear suggestions if no meaningful selection
         clearSuggestions();
         setShowSuggestions(false);
       }
     } catch (error) {
-      // Prevent errors from bubbling up
-      console.log('Selection error handled');
+      // Silent error handling
     }
   }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
 
@@ -63,13 +68,13 @@ export const WritingEditor = () => {
     if (!text.trim()) return;
     setShowSuggestions(true);
     
-    // Use requestAnimationFrame to avoid blocking
-    requestAnimationFrame(() => {
+    // Defer processing to avoid blocking
+    setTimeout(() => {
       processLocal(text).catch(() => {});
       if (hasApiKey) {
         processLLM(text).catch(() => {});
       }
-    });
+    }, 0);
   }, [text, processLocal, processLLM, hasApiKey]);
 
   const applySuggestion = (suggestion: any) => {
@@ -130,19 +135,22 @@ export const WritingEditor = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea
-            id="writing-textarea"
-            name="writing-textarea"
-            ref={textareaRef}
-            value={text}
-            onChange={handleTextChange}
-            onSelect={handleTextSelect}
-            placeholder="Start typing or paste your text here..."
-            className="min-h-[300px] text-lg leading-relaxed"
-            aria-label="Writing editor"
-            autoComplete="off"
-            spellCheck="false"
-          />
+          <form onSubmit={(e) => e.preventDefault()}>
+            <Textarea
+              id="writing-editor-textarea"
+              name="writingText"
+              ref={textareaRef}
+              value={text}
+              onChange={handleTextChange}
+              onSelect={handleTextSelect}
+              placeholder="Start typing or paste your text here..."
+              className="min-h-[300px] text-lg leading-relaxed"
+              aria-label="Writing editor textarea"
+              autoComplete="off"
+              spellCheck="false"
+              required
+            />
+          </form>
           
           {selectedText && (
             <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
@@ -155,6 +163,7 @@ export const WritingEditor = () => {
               onClick={analyzeText}
               disabled={!text.trim() || isLocalProcessing || isLLMProcessing}
               className="gap-2"
+              type="button"
             >
               <CheckCircle className="h-4 w-4" />
               Analyze Full Text
