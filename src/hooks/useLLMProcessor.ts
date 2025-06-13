@@ -79,7 +79,10 @@ Examples of what to fix:
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ OpenAI API error:', response.status, errorText);
-        throw new Error(`OpenAI API error: ${response.status}`);
+        
+        // Don't set any suggestions on API errors - just clear them
+        setLLMSuggestions([]);
+        return;
       }
 
       const data = await response.json();
@@ -132,11 +135,8 @@ Examples of what to fix:
 
     } catch (error) {
       console.error('💥 LLM processing error:', error);
-      setLLMSuggestions([{
-        type: 'Error',
-        text: text,
-        explanation: 'Unable to get AI suggestions. Please check your API key and try again.'
-      }]);
+      // On any error, just clear suggestions instead of showing error messages
+      setLLMSuggestions([]);
     } finally {
       setIsProcessing(false);
     }

@@ -56,6 +56,11 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
     return null;
   };
 
+  // Filter out error suggestions from LLM
+  const validLLMSuggestions = llmSuggestions.filter(suggestion => 
+    suggestion.type !== 'Error' && suggestion.text && suggestion.explanation
+  );
+
   return (
     <div className="space-y-4">
       {localSuggestions.length > 0 && (
@@ -120,7 +125,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
         </Card>
       )}
 
-      {llmSuggestions.length > 0 && (
+      {validLLMSuggestions.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -130,7 +135,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {llmSuggestions.map((suggestion, index) => (
+            {validLLMSuggestions.map((suggestion, index) => (
               <div key={index} className="border rounded-lg p-4 bg-purple-50">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -155,7 +160,7 @@ export const SuggestionsList: React.FC<SuggestionsListProps> = ({ onApplySuggest
         </Card>
       )}
 
-      {localSuggestions.length === 0 && llmSuggestions.length === 0 && (
+      {localSuggestions.length === 0 && validLLMSuggestions.length === 0 && (
         <Card>
           <CardContent className="p-6 text-center">
             <div className="text-gray-500">
