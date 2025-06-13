@@ -5,24 +5,40 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InlineSuggestions } from './InlineSuggestions';
+import { SuggestionsList } from './SuggestionsList';
 import { useSentenceAnalyzer } from '@/hooks/useSentenceAnalyzer';
-import { Sparkles, Zap } from 'lucide-react';
+import { useLocalProcessor } from '@/hooks/useLocalProcessor';
+import { useLLMProcessor } from '@/hooks/useLLMProcessor';
+import { useSuggestions } from '@/hooks/useSuggestions';
+import { Sparkles, Zap, Wand2, CheckCircle } from 'lucide-react';
 
 export const EnhancedWritingEditor = () => {
   const [text, setText] = useState('');
+  const [selectedText, setSelectedText] = useState('');
+  const [selectionStart, setSelectionStart] = useState(0);
+  const [selectionEnd, setSelectionEnd] = useState(0);
   const [showSuggestion, setShowSuggestion] = useState(false);
+  const [showErrorSuggestions, setShowErrorSuggestions] = useState(false);
   const [suggestionPosition, setSuggestionPosition] = useState({ top: 0, left: 0 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const sparkleButtonRef = useRef<HTMLButtonElement>(null);
   
   const { analysis, analyzeWholeText, clearAnalyses } = useSentenceAnalyzer();
+  const { 
+    processText: processLocal, 
+    isProcessing: isLocalProcessing, 
+    isSpellCheckerReady,
+    applySuggestion: applyLocalSuggestion
+  } = useLocalProcessor();
+  const { processText: processLLM, isProcessing: isLLMProcessing, hasApiKey } = useLLMProcessor();
+  const { clearSuggestions } = useSuggestions();
 
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setText(newText);
     
-    // Debounce analysis
+    // Debounce analysis for style suggestions
     const timeoutId = setTimeout(() => {
       if (newText.trim().length > 10) {
         analyzeWholeText(newText);
@@ -33,6 +49,41 @@ export const EnhancedWritingEditor = () => {
     
     return () => clearTimeout(timeoutId);
   }, [analyzeWholeText, clearAnalyses]);
+
+  const handleTextSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    try {
+      const target = e.target as HTMLTextAreaElement;
+      if (!target) return;
+      
+      const selected = target.value.substring(target.selectionStart, target.selectionEnd);
+      setSelectedText(selected);
+      setSelectionStart(target.selectionStart);
+      setSelectionEnd(target.selectionEnd);
+      
+      if (selected.trim().length > 2) {
+        setShowErrorSuggestions(true);
+        processLocal(selected);
+        if (hasApiKey) {
+          processLLM(selected);
+        }
+      } else {
+        clearSuggestions();
+        setShowErrorSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Text selection error:', error);
+    }
+  }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
+
+  const analyzeFullText = useCallback(() => {
+    if (!text.trim()) return;
+    setShowErrorSuggestions(true);
+    
+    processLocal(text);
+    if (hasApiKey) {
+      processLLM(text);
+    }
+  }, [text, processLocal, processLLM, hasApiKey]);
 
   const handleSparkleClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -70,6 +121,33 @@ export const EnhancedWritingEditor = () => {
     setShowSuggestion(false);
   }, []);
 
+  const applySuggestion = (suggestion: any) => {
+    if (selectedText && selectionStart !== selectionEnd) {
+      const correctedText = applyLocalSuggestion(selectedText, suggestion);
+      const newText = text.substring(0, selectionStart) + correctedText + text.substring(selectionEnd);
+      setText(newText);
+      
+      const newSelectionEnd = selectionStart + correctedText.length;
+      setSelectionStart(selectionStart);
+      setSelectionEnd(newSelectionEnd);
+      setSelectedText(correctedText);
+      
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(selectionStart, newSelectionEnd);
+        }
+      }, 0);
+    } else {
+      const correctedText = applyLocalSuggestion(text, suggestion);
+      setText(correctedText);
+      setSelectedText('');
+    }
+    
+    clearSuggestions();
+    setShowErrorSuggestions(false);
+  };
+
   return (
     <div className="space-y-4" ref={containerRef}>
       <Card>
@@ -90,8 +168,19 @@ export const EnhancedWritingEditor = () => {
               )}
               <Badge variant="outline" className="gap-1">
                 <Zap className="h-3 w-3 text-blue-500" />
-                Smart Suggestions
+                Local Processing
+                {isSpellCheckerReady ? (
+                  <span className="text-green-600">✓</span>
+                ) : (
+                  <span className="text-yellow-600">⚠</span>
+                )}
               </Badge>
+              {hasApiKey && (
+                <Badge variant="outline" className="gap-1">
+                  <Wand2 className="h-3 w-3 text-purple-500" />
+                  AI-Powered
+                </Badge>
+              )}
             </div>
           </CardTitle>
         </CardHeader>
@@ -101,14 +190,52 @@ export const EnhancedWritingEditor = () => {
               ref={textareaRef}
               value={text}
               onChange={handleTextChange}
+              onSelect={handleTextSelect}
               placeholder="Start typing... Smart suggestions will appear when you have enough text!"
               className="min-h-[300px] text-lg leading-relaxed"
+              spellCheck="false"
             />
           </div>
           
-          <div className="text-sm text-muted-foreground">
-            💡 <strong>Tip:</strong> Look for the ✨ icon in the header - click it to see formal and casual versions of your text!
+          {selectedText && (
+            <div className="text-sm text-gray-600 bg-blue-50 p-2 rounded">
+              💡 Selected: "{selectedText}" - Error corrections will appear below automatically
+            </div>
+          )}
+          
+          <div className="flex gap-3">
+            <Button 
+              onClick={analyzeFullText}
+              disabled={!text.trim() || isLocalProcessing || isLLMProcessing}
+              className="gap-2"
+              type="button"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Check for Errors
+            </Button>
           </div>
+          
+          <div className="text-sm text-muted-foreground">
+            💡 <strong>Tips:</strong>
+            <br />• Click the ✨ icon for formal/casual style variations
+            <br />• Select text or click "Check for Errors" for grammar and spelling corrections
+          </div>
+
+          {!hasApiKey && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                💡 Add your API key in Settings to unlock advanced AI-powered suggestions
+              </p>
+            </div>
+          )}
+
+          {!isSpellCheckerReady && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                📚 Loading spell checker dictionary... Some spelling features may be limited.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -119,6 +246,10 @@ export const EnhancedWritingEditor = () => {
           onDismiss={handleSuggestionDismiss}
           position={suggestionPosition}
         />
+      )}
+
+      {showErrorSuggestions && (
+        <SuggestionsList onApplySuggestion={applySuggestion} />
       )}
     </div>
   );
