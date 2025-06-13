@@ -31,7 +31,7 @@ export const WritingEditor = () => {
     setText(e.target.value);
   };
 
-  const handleTextSelect = useCallback(async (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+  const handleTextSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
     const target = e.target as HTMLTextAreaElement;
     const selected = target.value.substring(target.selectionStart, target.selectionEnd);
     setSelectedText(selected);
@@ -41,14 +41,17 @@ export const WritingEditor = () => {
     // Auto-analyze selection if text is selected and longer than 2 characters
     if (selected.trim().length > 2) {
       setShowSuggestions(true);
-      try {
-        await processLocal(selected);
-        if (hasApiKey) {
-          await processLLM(selected);
+      // Use setTimeout to avoid blocking the UI
+      setTimeout(async () => {
+        try {
+          await processLocal(selected);
+          if (hasApiKey) {
+            await processLLM(selected);
+          }
+        } catch (error) {
+          // Silently handle errors
         }
-      } catch (error) {
-        // Silently handle errors to prevent console spam
-      }
+      }, 100);
     } else {
       // Clear suggestions if no meaningful selection
       clearSuggestions();
@@ -56,21 +59,24 @@ export const WritingEditor = () => {
     }
   }, [processLocal, processLLM, hasApiKey, clearSuggestions]);
 
-  const analyzeText = useCallback(async () => {
+  const analyzeText = useCallback(() => {
     if (!text.trim()) return;
     setShowSuggestions(true);
     
-    try {
-      // Always run local processing
-      await processLocal(text);
-      
-      // Run LLM processing if API key is available
-      if (hasApiKey) {
-        await processLLM(text);
+    // Use setTimeout to avoid blocking the UI
+    setTimeout(async () => {
+      try {
+        // Always run local processing
+        await processLocal(text);
+        
+        // Run LLM processing if API key is available
+        if (hasApiKey) {
+          await processLLM(text);
+        }
+      } catch (error) {
+        // Silently handle errors
       }
-    } catch (error) {
-      // Silently handle errors to prevent console spam
-    }
+    }, 100);
   }, [text, processLocal, processLLM, hasApiKey]);
 
   const applySuggestion = (suggestion: any) => {
@@ -132,15 +138,12 @@ export const WritingEditor = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            id="writing-editor-textarea"
-            name="writing-editor-textarea"
             ref={textareaRef}
             value={text}
             onChange={handleTextChange}
             onSelect={handleTextSelect}
             placeholder="Start typing or paste your text here..."
             className="min-h-[300px] text-lg leading-relaxed"
-            aria-label="Writing editor text area"
           />
           
           {selectedText && (
