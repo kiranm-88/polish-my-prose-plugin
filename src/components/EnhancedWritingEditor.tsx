@@ -1,21 +1,17 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { EditorHeader } from './EditorHeader';
+import { EditorTextarea } from './EditorTextarea';
+import { EditorInstructions } from './EditorInstructions';
 import { InlineSuggestions } from './InlineSuggestions';
 import { useSentenceAnalyzer } from '@/hooks/useSentenceAnalyzer';
 import { useLocalProcessor } from '@/hooks/useLocalProcessor';
 import { useLLMProcessor } from '@/hooks/useLLMProcessor';
 import { useSuggestions } from '@/hooks/useSuggestions';
-import { Sparkles, Zap, Wand2 } from 'lucide-react';
 
 export const EnhancedWritingEditor = () => {
   const [text, setText] = useState('');
-  const [selectedText, setSelectedText] = useState('');
-  const [selectionStart, setSelectionStart] = useState(0);
-  const [selectionEnd, setSelectionEnd] = useState(0);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestionPosition, setSuggestionPosition] = useState({ top: 0, left: 0 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -25,11 +21,10 @@ export const EnhancedWritingEditor = () => {
   const { analysis, analyzeWholeText, clearAnalyses } = useSentenceAnalyzer();
   const { 
     processText: processLocal, 
-    isProcessing: isLocalProcessing, 
     isSpellCheckerReady,
     applySuggestion: applyLocalSuggestion
   } = useLocalProcessor();
-  const { processText: processLLM, isProcessing: isLLMProcessing, hasApiKey } = useLLMProcessor();
+  const { processText: processLLM, hasApiKey } = useLLMProcessor();
   const { localSuggestions, clearSuggestions } = useSuggestions();
 
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -86,72 +81,27 @@ export const EnhancedWritingEditor = () => {
     <div className="space-y-4" ref={containerRef}>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Writing Assistant</span>
-            <div className="flex items-center gap-2">
-              {showSparkleButton && (
-                <Button
-                  ref={sparkleButtonRef}
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSparkleClick}
-                  className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                  title="Get writing suggestions - corrections and style variations"
-                >
-                  <Sparkles className="h-4 w-4" />
-                </Button>
-              )}
-              <Badge variant="outline" className="gap-1">
-                <Zap className="h-3 w-3 text-blue-500" />
-                Smart Corrections
-                {isSpellCheckerReady ? (
-                  <span className="text-green-600">✓</span>
-                ) : (
-                  <span className="text-yellow-600">⚠</span>
-                )}
-              </Badge>
-              {hasApiKey && (
-                <Badge variant="outline" className="gap-1">
-                  <Wand2 className="h-3 w-3 text-purple-500" />
-                  AI-Enhanced
-                </Badge>
-              )}
-            </div>
+          <CardTitle>
+            <EditorHeader
+              showSparkleButton={showSparkleButton}
+              onSparkleClick={handleSparkleClick}
+              sparkleButtonRef={sparkleButtonRef}
+              isSpellCheckerReady={isSpellCheckerReady}
+              hasApiKey={hasApiKey}
+            />
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative">
-            <Textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleTextChange}
-              placeholder="Start typing your text here... Click the ✨ icon to get writing suggestions!"
-              className="min-h-[300px] text-lg leading-relaxed"
-              spellCheck="false"
-            />
-          </div>
+          <EditorTextarea
+            text={text}
+            onChange={handleTextChange}
+            textareaRef={textareaRef}
+          />
           
-          <div className="text-sm text-muted-foreground">
-            💡 <strong>How to use:</strong>
-            <br />• Type your text in the editor above
-            <br />• Click the ✨ icon to get grammar corrections, spell check, and style variations (formal/casual)
-          </div>
-
-          {!hasApiKey && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
-                💡 Add your OpenAI API key in Settings to unlock advanced AI-powered suggestions
-              </p>
-            </div>
-          )}
-
-          {!isSpellCheckerReady && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-                📚 Loading spell checker dictionary... Some spelling features may be limited.
-              </p>
-            </div>
-          )}
+          <EditorInstructions
+            hasApiKey={hasApiKey}
+            isSpellCheckerReady={isSpellCheckerReady}
+          />
         </CardContent>
       </Card>
 
