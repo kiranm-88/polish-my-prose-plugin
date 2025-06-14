@@ -2,8 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { X, CheckCircle } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface SuggestionOptions {
   formal: string;
@@ -34,16 +33,47 @@ export const InlineSuggestions = ({
   localSuggestions = [], 
   onSelect, 
   onDismiss, 
-  onApplyCorrection,
   position,
   currentText
 }: InlineSuggestionsProps) => {
-  const handleCorrectionApply = (suggestion: LocalSuggestion) => {
-    if (onApplyCorrection) {
-      const correctedText = onApplyCorrection(currentText, suggestion);
-      onSelect(correctedText);
-    }
+  // Apply corrections to the suggestion text and track what was corrected
+  const applyCorrectionsToText = (text: string) => {
+    let correctedText = text;
+    const corrections: Array<{original: string, corrected: string}> = [];
+    
+    localSuggestions.forEach(suggestion => {
+      if (suggestion.originalWord && suggestion.suggestion) {
+        const regex = new RegExp(`\\b${suggestion.originalWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        if (regex.test(correctedText)) {
+          correctedText = correctedText.replace(regex, suggestion.suggestion);
+          corrections.push({
+            original: suggestion.originalWord,
+            corrected: suggestion.suggestion
+          });
+        }
+      }
+    });
+    
+    return { correctedText, corrections };
   };
+
+  // Highlight corrected words in the text
+  const highlightCorrections = (text: string, corrections: Array<{original: string, corrected: string}>) => {
+    let highlightedText = text;
+    
+    corrections.forEach(({ corrected }) => {
+      const regex = new RegExp(`\\b${corrected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      highlightedText = highlightedText.replace(regex, `<mark class="bg-yellow-200 px-1 rounded">${corrected}</mark>`);
+    });
+    
+    return highlightedText;
+  };
+
+  // Process suggestions with corrections applied
+  const processedSuggestions = suggestions ? {
+    formal: applyCorrectionsToText(suggestions.formal),
+    casual: applyCorrectionsToText(suggestions.casual)
+  } : null;
 
   return (
     <Card 
@@ -67,60 +97,31 @@ export const InlineSuggestions = ({
         </div>
         
         <div className="space-y-3">
-          {/* Local corrections (spell check, grammar) */}
-          {localSuggestions.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-red-600 flex items-center gap-1">
-                🔧 Corrections
-              </div>
-              {localSuggestions.slice(0, 3).map((suggestion, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="p-3 bg-red-50 rounded-md border border-red-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="text-xs">{suggestion.type}</Badge>
-                    </div>
-                    <p className="text-sm text-red-800 font-medium mb-1">{suggestion.explanation}</p>
-                    {suggestion.originalWord && suggestion.suggestion && (
-                      <p className="text-sm">
-                        <span className="bg-red-100 text-red-800 px-2 py-1 rounded">
-                          {suggestion.originalWord}
-                        </span>
-                        <span className="mx-2">→</span>
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
-                          {suggestion.suggestion}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleCorrectionApply(suggestion)}
-                  >
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Apply Fix
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Style suggestions */}
-          {suggestions && (
+          {processedSuggestions && (
             <>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-blue-600 flex items-center gap-1">
                   ✨ Formal Style
+                  {processedSuggestions.formal.corrections.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      ({processedSuggestions.formal.corrections.length} correction{processedSuggestions.formal.corrections.length > 1 ? 's' : ''})
+                    </span>
+                  )}
                 </div>
-                <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
-                  {suggestions.formal}
-                </div>
+                <div 
+                  className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted"
+                  dangerouslySetInnerHTML={{
+                    __html: highlightCorrections(
+                      processedSuggestions.formal.correctedText, 
+                      processedSuggestions.formal.corrections
+                    )
+                  }}
+                />
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => onSelect(suggestions.formal)}
+                  onClick={() => onSelect(processedSuggestions.formal.correctedText)}
                 >
                   Use Formal Version
                 </Button>
@@ -129,20 +130,37 @@ export const InlineSuggestions = ({
               <div className="space-y-2">
                 <div className="text-xs font-medium text-green-600 flex items-center gap-1">
                   💬 Casual Style
+                  {processedSuggestions.casual.corrections.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      ({processedSuggestions.casual.corrections.length} correction{processedSuggestions.casual.corrections.length > 1 ? 's' : ''})
+                    </span>
+                  )}
                 </div>
-                <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
-                  {suggestions.casual}
-                </div>
+                <div 
+                  className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted"
+                  dangerouslySetInnerHTML={{
+                    __html: highlightCorrections(
+                      processedSuggestions.casual.correctedText, 
+                      processedSuggestions.casual.corrections
+                    )
+                  }}
+                />
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => onSelect(suggestions.casual)}
+                  onClick={() => onSelect(processedSuggestions.casual.correctedText)}
                 >
                   Use Casual Version
                 </Button>
               </div>
             </>
+          )}
+
+          {(!processedSuggestions || (!processedSuggestions.formal.correctedText && !processedSuggestions.casual.correctedText)) && localSuggestions.length > 0 && (
+            <div className="text-sm text-muted-foreground text-center py-2">
+              💡 Try adding more text to get style suggestions with corrections applied
+            </div>
           )}
         </div>
       </div>
