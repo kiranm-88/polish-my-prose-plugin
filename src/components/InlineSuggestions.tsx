@@ -3,6 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
+import { CorrectionsHighlight } from './CorrectionsHighlight';
 
 interface SuggestionOptions {
   formal: string;
@@ -23,7 +24,7 @@ interface InlineSuggestionsProps {
   localSuggestions?: LocalSuggestion[];
   onSelect: (selectedText: string) => void;
   onDismiss: () => void;
-  onApplyCorrection?: (originalText: string, suggestion: LocalSuggestion) => string;
+  onRejectCorrection?: (original: string, suggestion: string) => void;
   position: { top: number; left: number };
   currentText: string;
 }
@@ -33,23 +34,27 @@ export const InlineSuggestions = ({
   localSuggestions = [], 
   onSelect, 
   onDismiss, 
+  onRejectCorrection,
   position,
   currentText
 }: InlineSuggestionsProps) => {
   // Apply corrections to the suggestion text and track what was corrected
   const applyCorrectionsToText = (text: string) => {
     let correctedText = text;
-    const corrections: Array<{original: string, corrected: string}> = [];
+    const corrections: Array<{original: string, corrected: string, startIndex: number, endIndex: number}> = [];
     
     localSuggestions.forEach(suggestion => {
       if (suggestion.originalWord && suggestion.suggestion) {
         const regex = new RegExp(`\\b${suggestion.originalWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-        if (regex.test(correctedText)) {
-          correctedText = correctedText.replace(regex, suggestion.suggestion);
+        let match;
+        while ((match = regex.exec(correctedText)) !== null) {
           corrections.push({
             original: suggestion.originalWord,
-            corrected: suggestion.suggestion
+            corrected: suggestion.suggestion,
+            startIndex: match.index,
+            endIndex: match.index + match[0].length
           });
+          correctedText = correctedText.replace(match[0], suggestion.suggestion);
         }
       }
     });
@@ -57,16 +62,10 @@ export const InlineSuggestions = ({
     return { correctedText, corrections };
   };
 
-  // Highlight corrected words in the text
-  const highlightCorrections = (text: string, corrections: Array<{original: string, corrected: string}>) => {
-    let highlightedText = text;
-    
-    corrections.forEach(({ corrected }) => {
-      const regex = new RegExp(`\\b${corrected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-      highlightedText = highlightedText.replace(regex, `<mark class="bg-yellow-200 px-1 rounded">${corrected}</mark>`);
-    });
-    
-    return highlightedText;
+  const handleRejectCorrection = (correction: {original: string, corrected: string}) => {
+    if (onRejectCorrection) {
+      onRejectCorrection(correction.original, correction.corrected);
+    }
   };
 
   // Process suggestions with corrections applied
@@ -108,15 +107,13 @@ export const InlineSuggestions = ({
                     </span>
                   )}
                 </div>
-                <div 
-                  className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted"
-                  dangerouslySetInnerHTML={{
-                    __html: highlightCorrections(
-                      processedSuggestions.formal.correctedText, 
-                      processedSuggestions.formal.corrections
-                    )
-                  }}
-                />
+                <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
+                  <CorrectionsHighlight
+                    text={processedSuggestions.formal.correctedText}
+                    corrections={processedSuggestions.formal.corrections}
+                    onRejectCorrection={handleRejectCorrection}
+                  />
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -136,15 +133,13 @@ export const InlineSuggestions = ({
                     </span>
                   )}
                 </div>
-                <div 
-                  className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted"
-                  dangerouslySetInnerHTML={{
-                    __html: highlightCorrections(
-                      processedSuggestions.casual.correctedText, 
-                      processedSuggestions.casual.corrections
-                    )
-                  }}
-                />
+                <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
+                  <CorrectionsHighlight
+                    text={processedSuggestions.casual.correctedText}
+                    corrections={processedSuggestions.casual.corrections}
+                    onRejectCorrection={handleRejectCorrection}
+                  />
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
