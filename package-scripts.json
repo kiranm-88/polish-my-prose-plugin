@@ -1,0 +1,6 @@
+
+{
+  "scripts": {
+    "build:extension": "node build-extension.js"
+  }
+}
