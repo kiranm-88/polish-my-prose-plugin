@@ -21,17 +21,12 @@ export const useOpenAIVerifier = () => {
 
   const verifyAndEnhanceSuggestions = async (
     originalText: string, 
-    suggestions: Suggestion[]
+    suggestions: Suggestion[] = []
   ): Promise<VerifiedSuggestion[]> => {
     const apiKey = localStorage.getItem('writing-assistant-api-key');
     
-    if (!apiKey || suggestions.length === 0) {
-      // Return original suggestions with default verification status
-      return suggestions.map(s => ({
-        ...s,
-        confidence: 'medium' as const,
-        verified: false
-      }));
+    if (!apiKey) {
+      return [];
     }
 
     setIsVerifying(true);
@@ -42,39 +37,40 @@ export const useOpenAIVerifier = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a writing assistant that verifies and enhances grammar and spelling suggestions. 
+            content: `You are a professional writing assistant that analyzes text for errors and improvements.
 
-Your task is to:
-1. Verify if each suggestion is correct and helpful
-2. Rate confidence level (high/medium/low)
-3. Enhance explanations to be clearer
-4. Filter out incorrect suggestions
-5. Add any missing critical suggestions
+IMPORTANT RULES:
+1. DO NOT change proper nouns, company names, or brand names
+2. DO NOT change contractions like "I've", "we're", "it's" unless they are genuinely incorrect
+3. Only suggest changes for actual errors or significant improvements
+4. If text is already well-written, return an empty array
 
-Respond with a JSON array of verified suggestions. Each suggestion should have:
-- type: string
-- text: string (corrected text)
-- explanation: string (enhanced explanation)
-- originalWord: string (if applicable)
-- suggestion: string (the suggested correction)
-- context: string (if applicable)
-- confidence: "high" | "medium" | "low"
-- verified: boolean
+Find these types of issues:
+- Genuine spelling mistakes (not proper nouns)
+- Grammar errors
+- Missing punctuation
+- Awkward phrasing that can be improved
 
-Only include suggestions that are genuinely helpful and correct.`
+For each suggestion, provide:
+{
+  "type": "Grammar|Spelling|Punctuation|Style",
+  "text": "the corrected text",
+  "explanation": "what was improved",
+  "originalWord": "original word/phrase if applicable",
+  "suggestion": "suggested replacement if applicable",
+  "confidence": "high|medium|low",
+  "verified": true
+}
+
+Return JSON array. If no improvements needed, return []`
           },
           {
             role: 'user',
-            content: `Original text: "${originalText}"
-
-Suggestions to verify:
-${JSON.stringify(suggestions, null, 2)}
-
-Please verify these suggestions and enhance them. Return only valid, helpful suggestions in JSON format.`
+            content: `Please analyze this text and suggest only necessary improvements: "${originalText}"`
           }
         ],
-        temperature: 0.3,
-        max_tokens: 2000,
+        temperature: 0.1,
+        max_tokens: 1000,
       };
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -87,8 +83,6 @@ Please verify these suggestions and enhance them. Return only valid, helpful sug
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', response.status, errorText);
         throw new Error(`OpenAI API error: ${response.status}`);
       }
 
@@ -96,37 +90,33 @@ Please verify these suggestions and enhance them. Return only valid, helpful sug
       const content = data.choices[0]?.message?.content;
 
       if (!content) {
-        throw new Error('No response from OpenAI');
+        return [];
       }
 
-      // Try to parse JSON response
       try {
         const verifiedSuggestions = JSON.parse(content);
         
         if (!Array.isArray(verifiedSuggestions)) {
-          throw new Error('Invalid response format from OpenAI');
+          return [];
         }
         
-        console.log('OpenAI verified', verifiedSuggestions.length, 'suggestions');
-        return verifiedSuggestions;
+        // Filter out suggestions that don't actually improve the text
+        const validSuggestions = verifiedSuggestions.filter((suggestion) => {
+          const hasRequiredFields = suggestion.text && suggestion.explanation;
+          const textChanged = suggestion.text.trim() !== originalText.trim();
+          return hasRequiredFields && textChanged;
+        });
+        
+        console.log('OpenAI verified', validSuggestions.length, 'suggestions');
+        return validSuggestions;
       } catch (parseError) {
         console.error('Failed to parse OpenAI response');
-        // Fallback to original suggestions
-        return suggestions.map(s => ({
-          ...s,
-          confidence: 'medium' as const,
-          verified: false
-        }));
+        return [];
       }
 
     } catch (error) {
       console.error('OpenAI verification failed:', error);
-      // Fallback to original suggestions with lower confidence
-      return suggestions.map(s => ({
-        ...s,
-        confidence: 'low' as const,
-        verified: false
-      }));
+      return [];
     } finally {
       setIsVerifying(false);
     }
