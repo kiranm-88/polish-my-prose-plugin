@@ -10,18 +10,8 @@ interface SuggestionOptions {
   casual: string;
 }
 
-interface LocalSuggestion {
-  type: string;
-  text: string;
-  explanation: string;
-  originalWord?: string;
-  suggestion?: string;
-  context?: string;
-}
-
 interface InlineSuggestionsProps {
   suggestions?: SuggestionOptions;
-  localSuggestions?: LocalSuggestion[];
   onSelect: (selectedText: string) => void;
   onDismiss: () => void;
   onRejectCorrection?: (original: string, suggestion: string) => void;
@@ -31,48 +21,17 @@ interface InlineSuggestionsProps {
 
 export const InlineSuggestions = ({ 
   suggestions, 
-  localSuggestions = [], 
   onSelect, 
   onDismiss, 
   onRejectCorrection,
   position,
   currentText
 }: InlineSuggestionsProps) => {
-  // Apply corrections to the suggestion text and track what was corrected
-  const applyCorrectionsToText = (text: string) => {
-    let correctedText = text;
-    const corrections: Array<{original: string, corrected: string, startIndex: number, endIndex: number}> = [];
-    
-    localSuggestions.forEach(suggestion => {
-      if (suggestion.originalWord && suggestion.suggestion) {
-        const regex = new RegExp(`\\b${suggestion.originalWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-        let match;
-        while ((match = regex.exec(correctedText)) !== null) {
-          corrections.push({
-            original: suggestion.originalWord,
-            corrected: suggestion.suggestion,
-            startIndex: match.index,
-            endIndex: match.index + match[0].length
-          });
-          correctedText = correctedText.replace(match[0], suggestion.suggestion);
-        }
-      }
-    });
-    
-    return { correctedText, corrections };
-  };
-
   const handleRejectCorrection = (correction: {original: string, corrected: string}) => {
     if (onRejectCorrection) {
       onRejectCorrection(correction.original, correction.corrected);
     }
   };
-
-  // Process suggestions with corrections applied
-  const processedSuggestions = suggestions ? {
-    formal: applyCorrectionsToText(suggestions.formal),
-    casual: applyCorrectionsToText(suggestions.casual)
-  } : null;
 
   return (
     <Card 
@@ -96,29 +55,20 @@ export const InlineSuggestions = ({
         </div>
         
         <div className="space-y-3">
-          {processedSuggestions && (
+          {suggestions && (
             <>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-blue-600 flex items-center gap-1">
                   ✨ Formal Style
-                  {processedSuggestions.formal.corrections.length > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      ({processedSuggestions.formal.corrections.length} correction{processedSuggestions.formal.corrections.length > 1 ? 's' : ''})
-                    </span>
-                  )}
                 </div>
                 <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
-                  <CorrectionsHighlight
-                    text={processedSuggestions.formal.correctedText}
-                    corrections={processedSuggestions.formal.corrections}
-                    onRejectCorrection={handleRejectCorrection}
-                  />
+                  {suggestions.formal}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => onSelect(processedSuggestions.formal.correctedText)}
+                  onClick={() => onSelect(suggestions.formal)}
                 >
                   Use Formal Version
                 </Button>
@@ -127,24 +77,15 @@ export const InlineSuggestions = ({
               <div className="space-y-2">
                 <div className="text-xs font-medium text-green-600 flex items-center gap-1">
                   💬 Casual Style
-                  {processedSuggestions.casual.corrections.length > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      ({processedSuggestions.casual.corrections.length} correction{processedSuggestions.casual.corrections.length > 1 ? 's' : ''})
-                    </span>
-                  )}
                 </div>
                 <div className="p-3 bg-muted/50 rounded-md text-sm leading-relaxed border border-muted">
-                  <CorrectionsHighlight
-                    text={processedSuggestions.casual.correctedText}
-                    corrections={processedSuggestions.casual.corrections}
-                    onRejectCorrection={handleRejectCorrection}
-                  />
+                  {suggestions.casual}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  onClick={() => onSelect(processedSuggestions.casual.correctedText)}
+                  onClick={() => onSelect(suggestions.casual)}
                 >
                   Use Casual Version
                 </Button>
@@ -152,9 +93,9 @@ export const InlineSuggestions = ({
             </>
           )}
 
-          {(!processedSuggestions || (!processedSuggestions.formal.correctedText && !processedSuggestions.casual.correctedText)) && localSuggestions.length > 0 && (
+          {!suggestions && (
             <div className="text-sm text-muted-foreground text-center py-2">
-              💡 Try adding more text to get style suggestions with corrections applied
+              💡 Try adding more text to get style suggestions
             </div>
           )}
         </div>

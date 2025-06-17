@@ -6,9 +6,7 @@ import { EditorTextarea } from './EditorTextarea';
 import { EditorInstructions } from './EditorInstructions';
 import { InlineSuggestions } from './InlineSuggestions';
 import { useSentenceAnalyzer } from '@/hooks/useSentenceAnalyzer';
-import { useLocalProcessor } from '@/hooks/useLocalProcessor';
 import { useLLMProcessor } from '@/hooks/useLLMProcessor';
-import { useSuggestions } from '@/hooks/useSuggestions';
 
 export const EnhancedWritingEditor = () => {
   const [text, setText] = useState('');
@@ -19,13 +17,7 @@ export const EnhancedWritingEditor = () => {
   const sparkleButtonRef = useRef<HTMLButtonElement>(null);
   
   const { analysis, analyzeWholeText, clearAnalyses, rejectCorrection } = useSentenceAnalyzer();
-  const { 
-    processText: processLocal, 
-    isSpellCheckerReady,
-    applySuggestion: applyLocalSuggestion
-  } = useLocalProcessor();
   const { processText: processLLM, hasApiKey } = useLLMProcessor();
-  const { localSuggestions, clearSuggestions } = useSuggestions();
 
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
@@ -33,9 +25,8 @@ export const EnhancedWritingEditor = () => {
     
     // Clear previous analyses when text changes
     clearAnalyses();
-    clearSuggestions();
     setShowSuggestion(false);
-  }, [clearAnalyses, clearSuggestions]);
+  }, [clearAnalyses]);
 
   const handleSparkleClick = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -44,10 +35,9 @@ export const EnhancedWritingEditor = () => {
       return;
     }
     
-    // Process the whole text for both style suggestions and error corrections
-    analyzeWholeText(text);
-    processLocal(text);
+    // Only process with API if available
     if (hasApiKey) {
+      analyzeWholeText(text);
       processLLM(text);
     }
     
@@ -63,7 +53,7 @@ export const EnhancedWritingEditor = () => {
     }
     
     setShowSuggestion(true);
-  }, [text, analyzeWholeText, processLocal, processLLM, hasApiKey]);
+  }, [text, analyzeWholeText, processLLM, hasApiKey]);
 
   const handleSuggestionSelect = useCallback((selectedText: string) => {
     setText(selectedText);
@@ -74,8 +64,8 @@ export const EnhancedWritingEditor = () => {
     setShowSuggestion(false);
   }, []);
 
-  // Show sparkle button when there's enough text
-  const showSparkleButton = text.trim().length > 10;
+  // Show sparkle button when there's enough text and API key is available
+  const showSparkleButton = text.trim().length > 10 && hasApiKey;
 
   return (
     <div className="space-y-4" ref={containerRef}>
@@ -86,7 +76,7 @@ export const EnhancedWritingEditor = () => {
               showSparkleButton={showSparkleButton}
               onSparkleClick={handleSparkleClick}
               sparkleButtonRef={sparkleButtonRef}
-              isSpellCheckerReady={isSpellCheckerReady}
+              isSpellCheckerReady={hasApiKey}
               hasApiKey={hasApiKey}
             />
           </CardTitle>
@@ -100,15 +90,14 @@ export const EnhancedWritingEditor = () => {
           
           <EditorInstructions
             hasApiKey={hasApiKey}
-            isSpellCheckerReady={isSpellCheckerReady}
+            isSpellCheckerReady={hasApiKey}
           />
         </CardContent>
       </Card>
 
-      {showSuggestion && (analysis || localSuggestions.length > 0) && (
+      {showSuggestion && analysis && (
         <InlineSuggestions
           suggestions={analysis?.suggestions}
-          localSuggestions={localSuggestions}
           onSelect={handleSuggestionSelect}
           onDismiss={handleSuggestionDismiss}
           onRejectCorrection={rejectCorrection}
