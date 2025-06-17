@@ -18,7 +18,7 @@ export const EnhancedWritingEditor = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sparkleButtonRef = useRef<HTMLButtonElement>(null);
   
-  const { analysis, analyzeWholeText, clearAnalyses } = useSentenceAnalyzer();
+  const { analysis, analyzeWholeText, clearAnalyses, rejectCorrection } = useSentenceAnalyzer();
   const { 
     processText: processLocal, 
     isSpellCheckerReady,
@@ -111,7 +111,7 @@ export const EnhancedWritingEditor = () => {
           localSuggestions={localSuggestions}
           onSelect={handleSuggestionSelect}
           onDismiss={handleSuggestionDismiss}
-          onApplyCorrection={applyLocalSuggestion}
+          onRejectCorrection={rejectCorrection}
           position={suggestionPosition}
           currentText={text}
         />

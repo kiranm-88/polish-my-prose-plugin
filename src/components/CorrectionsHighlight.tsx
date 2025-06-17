@@ -25,7 +25,9 @@ export const CorrectionsHighlight = ({
 
   // Create segments of text with corrections highlighted
   const createHighlightedText = () => {
-    if (corrections.length === 0) return text;
+    if (corrections.length === 0) {
+      return [{ type: 'text', content: text }];
+    }
 
     const segments = [];
     let lastIndex = 0;
