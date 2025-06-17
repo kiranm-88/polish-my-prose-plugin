@@ -2,7 +2,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Zap, Wand2 } from 'lucide-react';
+import { Sparkles, Zap, Wand2, Loader2 } from 'lucide-react';
 
 interface EditorHeaderProps {
   showSparkleButton: boolean;
@@ -10,6 +10,7 @@ interface EditorHeaderProps {
   sparkleButtonRef: React.RefObject<HTMLButtonElement>;
   isSpellCheckerReady: boolean;
   hasApiKey: boolean;
+  isProcessing?: boolean;
 }
 
 export const EditorHeader = ({
@@ -17,7 +18,8 @@ export const EditorHeader = ({
   onSparkleClick,
   sparkleButtonRef,
   isSpellCheckerReady,
-  hasApiKey
+  hasApiKey,
+  isProcessing = false
 }: EditorHeaderProps) => {
   return (
     <div className="flex items-center justify-between">
@@ -29,10 +31,15 @@ export const EditorHeader = ({
             variant="ghost"
             size="sm"
             onClick={onSparkleClick}
-            className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+            disabled={isProcessing}
+            className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50 disabled:opacity-50"
             title="Get writing suggestions - corrections and style variations"
           >
-            <Sparkles className="h-4 w-4" />
+            {isProcessing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
           </Button>
         )}
         <Badge variant="outline" className="gap-1">
