@@ -1,7 +1,7 @@
 
 {
   "manifest_version": 3,
-  "name": "Enhanced Writing Assistant",
+  "name": "Polish My Prose",
   "version": "1.0.0",
   "description": "AI-powered writing assistant with grammar checking and style suggestions",
   "permissions": [
@@ -13,7 +13,7 @@
   ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Writing Assistant",
+    "default_title": "Polish My Prose",
     "default_icon": {
       "16": "favicon.ico",
       "32": "favicon.ico",
