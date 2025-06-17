@@ -4,6 +4,7 @@ import { EnhancedWritingEditor } from '@/components/EnhancedWritingEditor';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { WelcomeOnboarding } from '@/components/WelcomeOnboarding';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Settings, FileText } from 'lucide-react';
 
 const Index = () => {
@@ -29,23 +30,43 @@ const Index = () => {
             <FileText className="h-8 w-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900">Writing Assistant</h1>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => setShowSettings(!showSettings)}
-            className="gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Settings
-          </Button>
+          
+          {/* Mobile/Tablet Settings - Sheet */}
+          <div className="lg:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SettingsPanel />
+              </SheetContent>
+            </Sheet>
+          </div>
+          
+          {/* Desktop Settings - Toggle Button */}
+          <div className="hidden lg:block">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowSettings(!showSettings)}
+              className="gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </Button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
+          <div className={showSettings ? "lg:col-span-3" : "lg:col-span-4"}>
             <EnhancedWritingEditor />
           </div>
           
+          {/* Desktop Settings Panel */}
           {showSettings && (
-            <div className="lg:col-span-1">
+            <div className="hidden lg:block lg:col-span-1">
               <SettingsPanel />
             </div>
           )}
