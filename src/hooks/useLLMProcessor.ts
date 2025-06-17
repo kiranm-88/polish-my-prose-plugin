@@ -1,11 +1,9 @@
 
 import { useState, useEffect } from 'react';
-import { useSuggestions } from './useSuggestions';
 
 export const useLLMProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
-  const { setLLMSuggestions } = useSuggestions();
 
   useEffect(() => {
     const checkApiKey = () => {
@@ -19,10 +17,10 @@ export const useLLMProcessor = () => {
   }, []);
 
   const processText = async (text: string) => {
-    if (!hasApiKey) return;
+    if (!hasApiKey) return null;
     
     const apiKey = localStorage.getItem('writing-assistant-api-key');
-    if (!apiKey) return;
+    if (!apiKey) return null;
     
     setIsProcessing(true);
     console.log('🔍 Processing text:', text);
@@ -33,36 +31,33 @@ export const useLLMProcessor = () => {
         messages: [
           {
             role: 'system',
-            content: `You are a writing assistant that finds and corrects errors in text.
+            content: `You are a writing assistant that improves text quality and style.
 
-Find these specific types of errors:
-1. Missing punctuation (commas, periods, apostrophes)
-2. Spelling mistakes and typos
-3. Grammar errors
-4. British to American English conversion
+Your task is to:
+1. Fix any spelling, grammar, or punctuation errors
+2. Create two versions: one formal and one casual
+3. Only suggest improvements if the text actually needs them
 
-CRITICAL: Only return corrections if you find ACTUAL errors. If the text is perfect, return an empty array [].
+IMPORTANT: If the text is already well-written, return exactly the same text for both versions.
 
-Each correction must have:
+Return a JSON object with this exact structure:
 {
-  "type": "Grammar|Spelling|Punctuation", 
-  "text": "the fully corrected text",
-  "explanation": "what was fixed"
+  "formal": "the text rewritten in a formal style",
+  "casual": "the text rewritten in a casual style"
 }
 
-Examples of what to fix:
-- "ok let's" → "Ok, let's" (missing comma, capitalization)
-- "Lets go" → "Let's go" (missing apostrophe)
-- "finalise" → "finalize" (British to American)
-- "sdeal" → "deal" (typo)`
+Examples:
+- Input: "ok lets go to the store" → {"formal": "Okay, let's go to the store.", "casual": "Ok, let's go to the store!"}
+- Input: "The meeting is scheduled for tomorrow." → {"formal": "The meeting is scheduled for tomorrow.", "casual": "The meeting is scheduled for tomorrow."}
+`
           },
           {
             role: 'user',
-            content: `Analyze and fix errors in: "${text}"`
+            content: `Please improve this text: "${text}"`
           }
         ],
         temperature: 0.1,
-        max_tokens: 800,
+        max_tokens: 500,
       };
 
       console.log('📤 Sending request to OpenAI...');
@@ -79,10 +74,7 @@ Examples of what to fix:
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ OpenAI API error:', response.status, errorText);
-        
-        // Don't set any suggestions on API errors - just clear them
-        setLLMSuggestions([]);
-        return;
+        return null;
       }
 
       const data = await response.json();
@@ -92,51 +84,29 @@ Examples of what to fix:
 
       if (!content) {
         console.log('⚠️ Empty response from OpenAI');
-        setLLMSuggestions([]);
-        return;
+        return null;
       }
 
       try {
-        const suggestions = JSON.parse(content);
+        const result = JSON.parse(content);
         
-        if (!Array.isArray(suggestions)) {
-          console.error('❌ Response is not an array:', suggestions);
-          setLLMSuggestions([]);
-          return;
+        if (!result.formal || !result.casual) {
+          console.error('❌ Invalid response structure:', result);
+          return null;
         }
         
-        console.log(`📊 Received ${suggestions.length} suggestions from OpenAI`);
-        
-        // Filter out suggestions that don't actually change the text
-        const validSuggestions = suggestions.filter((suggestion) => {
-          const hasRequiredFields = suggestion.text && suggestion.explanation;
-          const textChanged = suggestion.text.trim().toLowerCase() !== text.trim().toLowerCase();
-          
-          console.log('🔍 Validating suggestion:', {
-            text: suggestion.text,
-            explanation: suggestion.explanation,
-            hasRequiredFields,
-            textChanged,
-            original: text.trim(),
-            suggested: suggestion.text?.trim()
-          });
-          
-          return hasRequiredFields && textChanged;
-        });
-        
-        console.log(`✅ Valid suggestions after filtering: ${validSuggestions.length}`);
-        setLLMSuggestions(validSuggestions);
+        console.log('✅ Successfully processed suggestions');
+        return result;
         
       } catch (parseError) {
         console.error('❌ JSON parse error:', parseError);
         console.error('Failed to parse content:', content);
-        setLLMSuggestions([]);
+        return null;
       }
 
     } catch (error) {
       console.error('💥 LLM processing error:', error);
-      // On any error, just clear suggestions instead of showing error messages
-      setLLMSuggestions([]);
+      return null;
     } finally {
       setIsProcessing(false);
     }
