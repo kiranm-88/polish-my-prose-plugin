@@ -11,87 +11,106 @@ async function buildExtension() {
     fs.rmSync('dist-extension', { recursive: true, force: true });
   }
   
-  // Build the app with extension-specific configuration
-  await build({
-    build: {
-      outDir: 'dist-extension',
-      rollupOptions: {
-        input: path.resolve('index-extension.html'),
-        output: {
-          // Ensure assets use relative paths
-          assetFileNames: 'assets/[name]-[hash][extname]',
-          chunkFileNames: 'assets/[name]-[hash].js',
-          entryFileNames: 'assets/[name]-[hash].js'
-        }
+  try {
+    // Build the extension with a simpler configuration
+    await build({
+      build: {
+        outDir: 'dist-extension',
+        rollupOptions: {
+          input: {
+            popup: path.resolve('index-extension.html')
+          },
+          output: {
+            entryFileNames: '[name].js',
+            chunkFileNames: '[name].js',
+            assetFileNames: '[name].[ext]'
+          }
+        },
+        target: 'es2020',
+        minify: false, // Disable minification for debugging
+        cssCodeSplit: false,
+        sourcemap: false
       },
-      // Important for extension compatibility
-      target: 'es2020',
-      cssCodeSplit: false,
-      // Inline small assets to avoid path issues
-      assetsInlineLimit: 4096
-    },
-    define: {
-      // Ensure we're building for extension environment
-      __EXTENSION_BUILD__: true
-    }
-  });
-  
-  // Copy extension-specific files
-  const extensionFiles = ['manifest.json', 'content.js'];
-  
-  for (const file of extensionFiles) {
-    const srcPath = path.join('public', file);
-    const destPath = path.join('dist-extension', file);
-    
-    if (fs.existsSync(srcPath)) {
-      fs.copyFileSync(srcPath, destPath);
-      console.log(`Copied ${file}`);
-    } else {
-      console.warn(`Warning: ${file} not found in public folder`);
-    }
-  }
-  
-  // Rename the HTML file to index.html (required by manifest)
-  const indexExtensionPath = path.join('dist-extension', 'index-extension.html');
-  const indexPath = path.join('dist-extension', 'index.html');
-  
-  if (fs.existsSync(indexExtensionPath)) {
-    fs.renameSync(indexExtensionPath, indexPath);
-    console.log('Renamed index-extension.html to index.html');
-    
-    // Verify the file exists and log its size
-    const stats = fs.statSync(indexPath);
-    console.log(`index.html created successfully (${stats.size} bytes)`);
-  } else {
-    console.error('ERROR: index-extension.html not found in dist-extension');
-    console.log('Available files:', fs.readdirSync('dist-extension'));
-  }
-  
-  // List all generated files for debugging
-  console.log('\nGenerated files:');
-  function listFiles(dir, prefix = '') {
-    const files = fs.readdirSync(dir);
-    files.forEach(file => {
-      const filePath = path.join(dir, file);
-      const stat = fs.statSync(filePath);
-      if (stat.isDirectory()) {
-        console.log(`${prefix}📁 ${file}/`);
-        listFiles(filePath, prefix + '  ');
-      } else {
-        console.log(`${prefix}📄 ${file} (${stat.size} bytes)`);
+      define: {
+        'process.env.NODE_ENV': '"production"'
       }
     });
+    
+    console.log('✅ Vite build completed');
+    
+    // Copy extension files
+    const filesToCopy = [
+      { src: 'public/manifest.json', dest: 'manifest.json' },
+      { src: 'public/content.js', dest: 'content.js' },
+      { src: 'public/favicon.ico', dest: 'favicon.ico' }
+    ];
+    
+    for (const file of filesToCopy) {
+      const srcPath = file.src;
+      const destPath = path.join('dist-extension', file.dest);
+      
+      if (fs.existsSync(srcPath)) {
+        // Ensure directory exists
+        const destDir = path.dirname(destPath);
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+        
+        fs.copyFileSync(srcPath, destPath);
+        console.log(`✅ Copied ${file.dest}`);
+      } else {
+        console.warn(`⚠️  Warning: ${srcPath} not found`);
+      }
+    }
+    
+    // Rename popup.html to index.html (this is what Vite generates)
+    const popupHtmlPath = path.join('dist-extension', 'popup.html');
+    const indexHtmlPath = path.join('dist-extension', 'index.html');
+    
+    if (fs.existsSync(popupHtmlPath)) {
+      fs.renameSync(popupHtmlPath, indexHtmlPath);
+      console.log('✅ Renamed popup.html to index.html');
+    } else {
+      console.error('❌ popup.html not found after build');
+    }
+    
+    // List all files in the output directory
+    console.log('\n📁 Generated files:');
+    const files = fs.readdirSync('dist-extension');
+    files.forEach(file => {
+      const filePath = path.join('dist-extension', file);
+      const stats = fs.statSync(filePath);
+      if (stats.isFile()) {
+        console.log(`   📄 ${file} (${stats.size} bytes)`);
+      } else {
+        console.log(`   📁 ${file}/`);
+      }
+    });
+    
+    // Verify index.html exists and has content
+    if (fs.existsSync(indexHtmlPath)) {
+      const indexContent = fs.readFileSync(indexHtmlPath, 'utf8');
+      console.log(`\n✅ index.html created (${indexContent.length} characters)`);
+      console.log('📋 First 200 characters:', indexContent.substring(0, 200) + '...');
+    } else {
+      console.error('❌ CRITICAL: index.html missing after build');
+      return;
+    }
+    
+    console.log('\n🎉 Extension built successfully!');
+    console.log('\n📋 Next steps:');
+    console.log('1. Open Chrome and go to chrome://extensions/');
+    console.log('2. Enable "Developer mode" (top right toggle)');
+    console.log('3. Click "Load unpacked"');
+    console.log('4. Select the dist-extension folder');
+    
+  } catch (error) {
+    console.error('❌ Build failed:', error);
+    throw error;
   }
-  listFiles('dist-extension');
-  
-  console.log('\n✅ Extension built successfully in dist-extension/');
-  console.log('\nTo test:');
-  console.log('1. Open Chrome and go to chrome://extensions/');
-  console.log('2. Enable "Developer mode"');
-  console.log('3. Click "Load unpacked" and select the dist-extension folder');
 }
 
 buildExtension().catch(error => {
-  console.error('Build failed:', error);
+  console.error('💥 Extension build failed:', error);
   process.exit(1);
 });
