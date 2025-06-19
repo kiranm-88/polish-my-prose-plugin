@@ -12,11 +12,29 @@ async function buildExtension() {
       outDir: 'dist-extension',
       rollupOptions: {
         input: {
-          main: path.resolve('index-extension.html')
+          index: path.resolve('index-extension.html')
+        },
+        output: {
+          entryFileNames: 'assets/[name].js',
+          assetFileNames: (assetInfo) => {
+            if (assetInfo.name === 'index-extension.html') {
+              return 'index.html';
+            }
+            return 'assets/[name].[ext]';
+          }
         }
       }
     }
   });
+  
+  // Ensure index.html exists in the output directory
+  const indexExtensionPath = path.join('dist-extension', 'index-extension.html');
+  const indexPath = path.join('dist-extension', 'index.html');
+  
+  if (fs.existsSync(indexExtensionPath) && !fs.existsSync(indexPath)) {
+    fs.renameSync(indexExtensionPath, indexPath);
+    console.log('Renamed index-extension.html to index.html');
+  }
   
   // Copy extension files
   const extensionFiles = ['manifest.json', 'content.js'];
