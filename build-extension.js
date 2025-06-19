@@ -6,13 +6,13 @@ import path from 'path';
 async function buildExtension() {
   console.log('Building extension...');
   
-  // Build the app
+  // Build the app with extension entry point
   await build({
     build: {
       outDir: 'dist-extension',
       rollupOptions: {
         input: {
-          main: 'index.html'
+          main: path.resolve('index-extension.html')
         }
       }
     }
