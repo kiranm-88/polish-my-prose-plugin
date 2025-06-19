@@ -11,30 +11,10 @@ async function buildExtension() {
     build: {
       outDir: 'dist-extension',
       rollupOptions: {
-        input: {
-          index: path.resolve('index-extension.html')
-        },
-        output: {
-          entryFileNames: 'assets/[name].js',
-          assetFileNames: (assetInfo) => {
-            if (assetInfo.name === 'index-extension.html') {
-              return 'index.html';
-            }
-            return 'assets/[name].[ext]';
-          }
-        }
+        input: path.resolve('index-extension.html')
       }
     }
   });
-  
-  // Ensure index.html exists in the output directory
-  const indexExtensionPath = path.join('dist-extension', 'index-extension.html');
-  const indexPath = path.join('dist-extension', 'index.html');
-  
-  if (fs.existsSync(indexExtensionPath) && !fs.existsSync(indexPath)) {
-    fs.renameSync(indexExtensionPath, indexPath);
-    console.log('Renamed index-extension.html to index.html');
-  }
   
   // Copy extension files
   const extensionFiles = ['manifest.json', 'content.js'];
@@ -47,6 +27,17 @@ async function buildExtension() {
       fs.copyFileSync(srcPath, destPath);
       console.log(`Copied ${file}`);
     }
+  }
+  
+  // Rename index-extension.html to index.html
+  const indexExtensionPath = path.join('dist-extension', 'index-extension.html');
+  const indexPath = path.join('dist-extension', 'index.html');
+  
+  if (fs.existsSync(indexExtensionPath)) {
+    fs.renameSync(indexExtensionPath, indexPath);
+    console.log('Renamed index-extension.html to index.html');
+  } else {
+    console.error('index-extension.html not found in dist-extension');
   }
   
   console.log('Extension built successfully in dist-extension/');
