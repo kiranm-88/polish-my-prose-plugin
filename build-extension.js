@@ -13,12 +13,21 @@ async function buildExtension() {
   }
   
   try {
-    // Build with Vite using CRXJS plugin
+    // Build with Vite using CRXJS plugin in extension mode
     await build({
       mode: 'extension',
       build: {
         outDir: 'dist',
-        emptyOutDir: true
+        emptyOutDir: true,
+        rollupOptions: {
+          input: {
+            popup: 'src/popup.html',
+            content: 'src/content.ts'
+          }
+        }
+      },
+      define: {
+        'process.env.NODE_ENV': '"production"'
       }
     });
     
