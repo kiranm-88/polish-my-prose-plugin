@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
   
   // Add CRX plugin for extension mode
   if (mode === 'extension') {
-    plugins.push(crx({ manifest }));
+    plugins.push(crx({ manifest }) as any);
   }
   
   return {
