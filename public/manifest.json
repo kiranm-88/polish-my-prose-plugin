@@ -28,9 +28,6 @@
       "run_at": "document_end"
     }
   ],
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' https://cdn.gpteng.co; object-src 'self'"
-  },
   "web_accessible_resources": [
     {
       "resources": ["index.html", "assets/*"],
