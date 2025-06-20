@@ -13,19 +13,26 @@ async function buildExtension() {
   }
   
   try {
-    // Build with Vite
+    // Build with Vite using proper extension configuration
     await build({
       configFile: false,
+      root: '.',
       build: {
         outDir: 'dist-extension',
+        emptyOutDir: true,
         rollupOptions: {
-          input: 'index-extension.html',
+          input: {
+            extension: 'src/extension.tsx'
+          },
           output: {
-            entryFileNames: 'assets/[name].js',
-            chunkFileNames: 'assets/[name].js',
-            assetFileNames: 'assets/[name].[ext]'
+            entryFileNames: 'extension.js',
+            chunkFileNames: '[name].js',
+            assetFileNames: '[name].[ext]',
+            format: 'iife'
           }
-        }
+        },
+        target: 'es2015',
+        minify: false
       },
       define: {
         'process.env.NODE_ENV': '"production"'
@@ -33,6 +40,10 @@ async function buildExtension() {
     });
     
     console.log('✅ Vite build completed successfully');
+    
+    // Copy the HTML file
+    fs.copyFileSync('index-extension.html', path.join('dist-extension', 'index.html'));
+    console.log('✅ Copied index.html');
     
     // Copy extension-specific files
     const extensionFiles = [
@@ -49,25 +60,13 @@ async function buildExtension() {
       }
     }
     
-    // Ensure the main HTML file is named index.html and fix script path
+    // Fix the HTML file to point to the correct script
     const indexPath = path.join('dist-extension', 'index.html');
     if (fs.existsSync(indexPath)) {
       let content = fs.readFileSync(indexPath, 'utf8');
-      // Fix the script src to point to the correct built file
-      content = content.replace(/src="\/src\/extension\.tsx"/, 'src="./assets/extension.js"');
+      content = content.replace(/src=".*?extension\.(tsx|js)"/, 'src="./extension.js"');
       fs.writeFileSync(indexPath, content);
       console.log('✅ Fixed script path in index.html');
-    } else {
-      // Look for the built HTML file and rename it
-      const files = fs.readdirSync('dist-extension');
-      const htmlFiles = files.filter(f => f.endsWith('.html'));
-      if (htmlFiles.length > 0) {
-        console.log(`🔄 Renaming ${htmlFiles[0]} to index.html`);
-        fs.renameSync(
-          path.join('dist-extension', htmlFiles[0]),
-          indexPath
-        );
-      }
     }
     
     console.log('\n🎉 Extension build complete!');
