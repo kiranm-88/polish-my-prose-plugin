@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Polish My Prose</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.openai.com;">
     <style>
       * {
         margin: 0;
@@ -39,9 +40,6 @@
     <div id="root">
       <div class="loading">Loading Polish My Prose...</div>
     </div>
-    <script>
-      console.log('📄 HTML loaded, root element exists:', !!document.getElementById('root'));
-    </script>
     <script type="module" src="/src/extension.tsx"></script>
   </body>
 </html>
