@@ -13,13 +13,7 @@
   ],
   "action": {
     "default_popup": "src/popup.html",
-    "default_title": "Polish My Prose",
-    "default_icon": {
-      "16": "public/favicon.ico",
-      "32": "public/favicon.ico",
-      "48": "public/favicon.ico",
-      "128": "public/favicon.ico"
-    }
+    "default_title": "Polish My Prose"
   },
   "content_scripts": [
     {

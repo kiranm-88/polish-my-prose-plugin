@@ -1,7 +1,6 @@
 
 import { build } from 'vite';
 import fs from 'fs';
-import path from 'path';
 
 async function buildExtension() {
   console.log('🚀 Building Chrome extension with CRXJS...');
@@ -13,22 +12,9 @@ async function buildExtension() {
   }
   
   try {
-    // Build with Vite using CRXJS plugin in extension mode
+    // Build with Vite using CRXJS plugin
     await build({
-      mode: 'extension',
-      build: {
-        outDir: 'dist',
-        emptyOutDir: true,
-        rollupOptions: {
-          input: {
-            popup: 'src/popup.html',
-            content: 'src/content.ts'
-          }
-        }
-      },
-      define: {
-        'process.env.NODE_ENV': '"production"'
-      }
+      mode: 'extension'
     });
     
     console.log('✅ Extension build completed successfully');
