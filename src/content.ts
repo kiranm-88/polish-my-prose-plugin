@@ -65,10 +65,10 @@
     const iframe = document.createElement('iframe');
     // Use chrome.runtime.getURL to get the correct extension URL
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
-      iframe.src = chrome.runtime.getURL('src/popup.html');
+      iframe.src = chrome.runtime.getURL('popup.html');
     } else {
       // Fallback for development or if chrome API is not available
-      iframe.src = './src/popup.html';
+      iframe.src = './popup.html';
     }
     iframe.id = 'polish-my-prose-iframe';
     iframe.style.cssText = `

@@ -12,7 +12,7 @@
     "https://api.openai.com/*"
   ],
   "action": {
-    "default_popup": "src/popup.html",
+    "default_popup": "popup.html",
     "default_title": "Polish My Prose",
     "default_icon": {
       "16": "favicon.ico",
@@ -24,8 +24,14 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content.ts"],
+      "js": ["content.js"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html"],
+      "matches": ["<all_urls>"]
     }
   ]
 }
