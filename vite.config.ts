@@ -1,5 +1,5 @@
 
-import { defineConfig } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
@@ -8,16 +8,16 @@ import manifest from "./public/manifest.json";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const plugins = [react()];
+  const plugins: PluginOption[] = [react()];
   
   // Add component tagger only in development
   if (mode === 'development') {
-    plugins.push(componentTagger());
+    plugins.push(componentTagger() as PluginOption);
   }
   
   // Add CRX plugin for extension mode
   if (mode === 'extension') {
-    plugins.push(crx({ manifest }));
+    plugins.push(crx({ manifest }) as PluginOption);
   }
   
   return {
