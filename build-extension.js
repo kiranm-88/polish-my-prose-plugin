@@ -49,9 +49,15 @@ async function buildExtension() {
       }
     }
     
-    // Ensure the main HTML file is named index.html
+    // Ensure the main HTML file is named index.html and fix script path
     const indexPath = path.join('dist-extension', 'index.html');
-    if (!fs.existsSync(indexPath)) {
+    if (fs.existsSync(indexPath)) {
+      let content = fs.readFileSync(indexPath, 'utf8');
+      // Fix the script src to point to the correct built file
+      content = content.replace(/src="\/src\/extension\.tsx"/, 'src="./assets/extension.js"');
+      fs.writeFileSync(indexPath, content);
+      console.log('✅ Fixed script path in index.html');
+    } else {
       // Look for the built HTML file and rename it
       const files = fs.readdirSync('dist-extension');
       const htmlFiles = files.filter(f => f.endsWith('.html'));
